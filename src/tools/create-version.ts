@@ -11,10 +11,6 @@ const inputSchema = z.object({
 
 type Input = z.infer<typeof inputSchema>;
 
-interface JiraProject {
-  id: string;
-}
-
 interface JiraVersion {
   id: string;
   name: string;
@@ -25,13 +21,9 @@ export async function handleCreateVersion(
   client: AtlassianClient,
   params: Input
 ): Promise<string> {
-  const project = await client.jiraGet<JiraProject>(
-    `/rest/api/3/project/${params.projectKey}`
-  );
-
   const body: Record<string, unknown> = {
     name: params.name,
-    projectId: parseInt(project.id, 10),
+    project: params.projectKey,
   };
   if (params.description) body.description = params.description;
   if (params.releaseDate) body.releaseDate = params.releaseDate;

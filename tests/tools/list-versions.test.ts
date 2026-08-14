@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleListVersions } from "../../src/tools/list-versions.js";
 import { AtlassianClient } from "../../src/client.js";
 
@@ -14,6 +14,10 @@ describe("jcm_listVersions", () => {
       apiToken: "tok",
       cloudId: "cid",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("returns lean version list", async () => {

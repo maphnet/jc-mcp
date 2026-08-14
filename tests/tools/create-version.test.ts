@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleCreateVersion } from "../../src/tools/create-version.js";
 import { AtlassianClient } from "../../src/client.js";
 
@@ -16,16 +16,17 @@ describe("jcm_createVersion", () => {
     });
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("creates version and returns id, name", async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "10001" }), { status: 200 }))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ id: "10050", name: "1.0.0", self: "https://..." }),
-          { status: 201 }
-        )
-      );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: "10050", name: "1.0.0", self: "https://..." }),
+        { status: 201 }
+      )
+    );
 
     const result = JSON.parse(
       await handleCreateVersion(client, { projectKey: "TST", name: "1.0.0" })

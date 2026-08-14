@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 
 const inputSchema = z.object({
-  projectKey: z.string().describe("Project key, e.g. PROJ"),
+  projectKey: z.string().regex(/^[A-Z][A-Z0-9_]+$/).describe("Project key, e.g. PROJ"),
   issueType: z.string().describe("Issue type name, e.g. Task, Bug, Story"),
   summary: z.string().describe("Issue summary/title"),
   description: z

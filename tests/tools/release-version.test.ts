@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleReleaseVersion } from "../../src/tools/release-version.js";
 import { AtlassianClient } from "../../src/client.js";
 
@@ -14,6 +14,10 @@ describe("jcm_releaseVersion", () => {
       apiToken: "tok",
       cloudId: "cid",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("releases version and returns confirmation", async () => {
