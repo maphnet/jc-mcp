@@ -7,7 +7,14 @@ export interface Config {
 
 async function discoverCloudId(siteUrl: string): Promise<string> {
   const url = `${siteUrl}/_edge/tenant_info`;
-  const response = await fetch(url);
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  } catch (error) {
+    throw new Error(
+      `Could not reach ${url} within 10s. Check ATLASSIAN_URL or set ATLASSIAN_CLOUD_ID manually.`
+    );
+  }
   if (!response.ok) {
     throw new Error(
       `Could not auto-discover cloudId from ${url} (HTTP ${response.status}). ` +

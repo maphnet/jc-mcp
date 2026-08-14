@@ -36,7 +36,10 @@ describe("loadConfig", () => {
 
     const config = await loadConfig();
     expect(config.cloudId).toBe("discovered-id");
-    expect(fetch).toHaveBeenCalledWith("https://test.atlassian.net/_edge/tenant_info");
+    expect(fetch).toHaveBeenCalledWith(
+      "https://test.atlassian.net/_edge/tenant_info",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("throws descriptive error when auto-discovery fails", async () => {
@@ -49,6 +52,18 @@ describe("loadConfig", () => {
     );
 
     await expect(loadConfig()).rejects.toThrow("ATLASSIAN_CLOUD_ID");
+  });
+
+  it("throws when response is 200 but cloudId field is missing", async () => {
+    process.env.ATLASSIAN_URL = "https://test.atlassian.net";
+    process.env.ATLASSIAN_EMAIL = "a@b.com";
+    process.env.ATLASSIAN_TOKEN = "tok";
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({}), { status: 200 })
+    );
+
+    await expect(loadConfig()).rejects.toThrow("No cloudId in response");
   });
 
   it("throws when required env vars are missing", async () => {
