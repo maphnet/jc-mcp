@@ -18,6 +18,17 @@ npm run test:watch   # Run tests in watch mode
 npx tsc --noEmit     # Type-check without emitting
 ```
 
+## Publishing to npm
+
+```bash
+npm version patch        # bump version (patch / minor / major)
+npm run build            # compile TypeScript
+npm publish --access public   # publish @maphnet/jc-mcp (scoped → needs flag)
+git push && git push --tags   # push version commit + tag created by npm version
+```
+
+Requires `npm login` if not already authenticated.
+
 ## Architecture
 
 The server uses `@modelcontextprotocol/sdk` with stdio transport. Tool implementations live in `src/tools/`, each exporting a `register(server, client)` function and a testable `handle*` function.
