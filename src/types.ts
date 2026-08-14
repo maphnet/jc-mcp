@@ -43,6 +43,13 @@ export interface LeanArticleSearchResult {
   lastModified: string;
 }
 
+export interface LeanUser {
+  accountId: string;
+  displayName: string;
+  email: string;
+  active: boolean;
+}
+
 export interface ToolSuccess {
   ok: true;
   [key: string]: unknown;
