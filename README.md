@@ -11,10 +11,11 @@ Token-efficient Jira & Confluence MCP server. Returns lean, flat responses that 
 2. Add the server to your MCP client:
 
 ```bash
-claude mcp add jc-mcp -- npx -y @maphnet/jc-mcp \
+claude mcp add jc-mcp \
   -e ATLASSIAN_URL=https://yoursite.atlassian.net \
   -e ATLASSIAN_EMAIL=you@example.com \
-  -e ATLASSIAN_TOKEN=your-api-token
+  -e ATLASSIAN_TOKEN=your-api-token \
+  -- npx -y @maphnet/jc-mcp
 ```
 
 That's it. CloudId is auto-discovered from your site URL.
