@@ -1,15 +1,35 @@
 {
-  "name": "jc-mcp",
+  "name": "@maphnet/jc-mcp",
   "version": "0.1.0",
   "description": "Token-efficient Jira and Confluence MCP server",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "jc-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "author": "maphnet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maphnet/jc-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "jira",
+    "confluence",
+    "atlassian",
+    "model-context-protocol"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "engines": {
     "node": ">=18"
