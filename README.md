@@ -20,6 +20,16 @@ claude mcp add --scope user jc-mcp \
 
 The `--scope user` flag makes the server available across all your projects. Omit it to add only for the current project. CloudId is auto-discovered from your site URL.
 
+## Updating
+
+npx caches packages by version. To pull the latest release:
+
+```bash
+npx --yes @maphnet/jc-mcp@latest
+```
+
+Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new version.
+
 ## Tools
 
 | Tool | Description | Returns |
@@ -31,6 +41,8 @@ The `--scope user` flag makes the server available across all your projects. Omi
 | `jcm_createIssue` | Create a new issue | `{key, url}` |
 | `jcm_addComment` | Add a comment (plain text) | `{ok, id}` |
 | `jcm_searchIssues` | JQL search | `[{key, summary, status, assignee}]` |
+| `jcm_getCurrentUser` | Get the authenticated user | `{accountId, displayName, email, active}` |
+| `jcm_lookupUser` | Find a user by email | `[{accountId, displayName, email, active}]` |
 | `jcm_createVersion` | Create a release version | `{id, name}` |
 | `jcm_listVersions` | List project versions | `[{id, name, released, releaseDate}]` |
 | `jcm_releaseVersion` | Mark a version as released | `{ok, id, name}` |
