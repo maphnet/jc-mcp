@@ -17,37 +17,37 @@ import { register as registerCreateVersion } from "./tools/create-version.js";
 import { register as registerListVersions } from "./tools/list-versions.js";
 import { register as registerReleaseVersion } from "./tools/release-version.js";
 
-const config = loadConfig();
-const client = new AtlassianClient(config);
-
-const server = new McpServer({
-  name: "jc-mcp",
-  version: "0.1.0",
-});
-
-// Priority 1 tools
-registerGetIssue(server, client);
-registerGetTransitions(server, client);
-registerEditIssue(server, client);
-registerTransitionIssue(server, client);
-
-// Priority 2 tools
-registerCreateIssue(server, client);
-registerAddComment(server, client);
-registerSearchIssues(server, client);
-
-// Version management tools
-registerCreateVersion(server, client);
-registerListVersions(server, client);
-registerReleaseVersion(server, client);
-
-// Priority 3 tools (Confluence)
-registerGetArticle(server, client);
-registerCreateArticle(server, client);
-registerUpdateArticle(server, client);
-registerSearchArticles(server, client);
-
 async function main(): Promise<void> {
+  const config = await loadConfig();
+  const client = new AtlassianClient(config);
+
+  const server = new McpServer({
+    name: "jc-mcp",
+    version: "0.1.0",
+  });
+
+  // Priority 1 tools
+  registerGetIssue(server, client);
+  registerGetTransitions(server, client);
+  registerEditIssue(server, client);
+  registerTransitionIssue(server, client);
+
+  // Priority 2 tools
+  registerCreateIssue(server, client);
+  registerAddComment(server, client);
+  registerSearchIssues(server, client);
+
+  // Version management tools
+  registerCreateVersion(server, client);
+  registerListVersions(server, client);
+  registerReleaseVersion(server, client);
+
+  // Priority 3 tools (Confluence)
+  registerGetArticle(server, client);
+  registerCreateArticle(server, client);
+  registerUpdateArticle(server, client);
+  registerSearchArticles(server, client);
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("jc-mcp server running via stdio");
