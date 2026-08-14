@@ -18,6 +18,8 @@ import { register as registerSearchArticles } from "./tools/search-articles.js";
 import { register as registerCreateVersion } from "./tools/create-version.js";
 import { register as registerListVersions } from "./tools/list-versions.js";
 import { register as registerReleaseVersion } from "./tools/release-version.js";
+import { register as registerGetCurrentUser } from "./tools/get-current-user.js";
+import { register as registerLookupUser } from "./tools/lookup-user.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -33,6 +35,10 @@ async function main(): Promise<void> {
   registerGetTransitions(server, client);
   registerEditIssue(server, client);
   registerTransitionIssue(server, client);
+
+  // User tools
+  registerGetCurrentUser(server, client);
+  registerLookupUser(server, client);
 
   // Priority 2 tools
   registerCreateIssue(server, client);
