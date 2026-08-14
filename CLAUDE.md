@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**jc-mcp** is a Jira and Confluence MCP (Model Context Protocol) server focused on optimizing token efficiency for everyday tasks. Unlike general-purpose Atlassian MCP servers, this server is designed to return concise, structured responses that minimize token consumption while preserving the information LLM agents actually need.
+**jc-mcp** (`@maphnet/jc-mcp`) is a Jira and Confluence MCP (Model Context Protocol) server focused on optimizing token efficiency for everyday tasks. Unlike general-purpose Atlassian MCP servers, this server is designed to return concise, structured responses that minimize token consumption while preserving the information LLM agents actually need.
 
 ## Development Commands
 
@@ -55,7 +55,7 @@ Required in `.env` (or shell environment):
 | `ATLASSIAN_URL` | Site URL, e.g. `https://maphnet.atlassian.net` |
 | `ATLASSIAN_EMAIL` | Atlassian account email |
 | `ATLASSIAN_TOKEN` | API token from https://id.atlassian.com/manage-profile/security/api-tokens |
-| `ATLASSIAN_CLOUD_ID` | Cloud instance ID (get from `{siteUrl}/_edge/tenant_info`) |
+| `ATLASSIAN_CLOUD_ID` | Cloud instance ID (auto-discovered if omitted; get manually from `{siteUrl}/_edge/tenant_info`) |
 
 ## Key Design Principles
 
@@ -63,4 +63,5 @@ Required in `.env` (or shell environment):
 - **Flat responses.** Nested Atlassian objects are flattened: `status: "In Progress"` not `status: {name: "In Progress", statusCategory: {...}}`.
 - **No re-fetch after writes.** Write operations return minimal confirmations like `{ok: true, key: "PROJ-1"}`.
 - **ADF conversion.** Jira descriptions (Atlassian Document Format) are converted to markdown server-side.
+- **Async config.** `loadConfig()` is async — auto-discovers cloudId on startup when not set via env var.
 - **Update this file.** When adding new tools, changing the build system, or altering project structure, update the relevant sections of CLAUDE.md so future sessions stay current.

@@ -1,0 +1,13 @@
+{
+  "name": "io.github.maphnet/jc-mcp",
+  "description": "Token-efficient Jira & Confluence MCP server with lean responses",
+  "repository": {
+    "url": "https://github.com/maphnet/jc-mcp",
+    "source": "https://github.com/maphnet/jc-mcp"
+  },
+  "version_detail": {
+    "version": "0.1.0",
+    "release_date": "2026-08-14",
+    "package_canonical": "npm:@maphnet/jc-mcp"
+  }
+}
