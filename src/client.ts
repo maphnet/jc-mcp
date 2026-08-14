@@ -30,6 +30,10 @@ export class AtlassianClient {
     await this.rawRequest("PUT", path, body);
   }
 
+  async jiraPutJson<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>("PUT", path, body);
+  }
+
   async jiraPostNoContent(path: string, body: unknown): Promise<void> {
     await this.rawRequest("POST", path, body);
   }

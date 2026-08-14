@@ -29,7 +29,7 @@ src/
 ├── client.ts             # HTTP client for Jira/Confluence REST APIs (Basic auth)
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (11 tools total)
+└── tools/                # One file per MCP tool (14 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
@@ -37,6 +37,9 @@ src/
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (plain text → ADF)
     ├── search-issues.ts  # Priority 2: JQL search (lean results)
+    ├── create-version.ts # Version management: create release ({id, name})
+    ├── list-versions.ts  # Version management: list releases ([{id, name, released, releaseDate}])
+    ├── release-version.ts# Version management: mark released ({ok, id, name})
     ├── get-article.ts    # Priority 3: Confluence page read
     ├── create-article.ts # Priority 3: Confluence page creation
     ├── update-article.ts # Priority 3: Confluence page update

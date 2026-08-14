@@ -13,6 +13,9 @@ import { register as registerGetArticle } from "./tools/get-article.js";
 import { register as registerCreateArticle } from "./tools/create-article.js";
 import { register as registerUpdateArticle } from "./tools/update-article.js";
 import { register as registerSearchArticles } from "./tools/search-articles.js";
+import { register as registerCreateVersion } from "./tools/create-version.js";
+import { register as registerListVersions } from "./tools/list-versions.js";
+import { register as registerReleaseVersion } from "./tools/release-version.js";
 
 const config = loadConfig();
 const client = new AtlassianClient(config);
@@ -32,6 +35,11 @@ registerTransitionIssue(server, client);
 registerCreateIssue(server, client);
 registerAddComment(server, client);
 registerSearchIssues(server, client);
+
+// Version management tools
+registerCreateVersion(server, client);
+registerListVersions(server, client);
+registerReleaseVersion(server, client);
 
 // Priority 3 tools (Confluence)
 registerGetArticle(server, client);
