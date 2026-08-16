@@ -21,6 +21,9 @@ import { register as registerListVersions } from "./tools/list-versions.js";
 import { register as registerReleaseVersion } from "./tools/release-version.js";
 import { register as registerGetCurrentUser } from "./tools/get-current-user.js";
 import { register as registerLookupUser } from "./tools/lookup-user.js";
+import { register as registerAddIssueLink } from "./tools/add-issue-link.js";
+import { register as registerRemoveIssueLink } from "./tools/remove-issue-link.js";
+import { register as registerGetIssueLinks } from "./tools/get-issue-links.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -51,6 +54,11 @@ async function main(): Promise<void> {
   registerCreateVersion(server, client);
   registerListVersions(server, client);
   registerReleaseVersion(server, client);
+
+  // Issue link tools
+  registerAddIssueLink(server, client);
+  registerRemoveIssueLink(server, client);
+  registerGetIssueLinks(server, client);
 
   // Priority 3 tools (Confluence)
   registerGetArticle(server, client);

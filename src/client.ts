@@ -38,6 +38,10 @@ export class AtlassianClient {
     await this.rawRequest("POST", path, body);
   }
 
+  async jiraDelete(path: string): Promise<void> {
+    await this.rawRequest("DELETE", path);
+  }
+
   async confluenceGet<T>(
     path: string,
     params?: Record<string, string>

@@ -41,7 +41,7 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (17 tools total)
+└── tools/                # One file per MCP tool (20 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
@@ -55,6 +55,9 @@ src/
     ├── create-version.ts # Version management: create release ({id, name})
     ├── list-versions.ts  # Version management: list releases ([{id, name, released, releaseDate}])
     ├── release-version.ts# Version management: mark released ({ok, id, name})
+    ├── add-issue-link.ts # Issue links: create link ({ok, issueKey, targetKey, linkType})
+    ├── remove-issue-link.ts # Issue links: delete link ({ok, linkId})
+    ├── get-issue-links.ts# Issue links: list links ([{id, type, inwardIssue?, outwardIssue?}])
     ├── get-article.ts    # Priority 3: Confluence page read
     ├── create-article.ts # Priority 3: Confluence page creation
     ├── update-article.ts # Priority 3: Confluence page update
