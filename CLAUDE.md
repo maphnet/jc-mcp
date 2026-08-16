@@ -41,11 +41,12 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (16 tools total)
+└── tools/                # One file per MCP tool (17 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
     ├── transition-issue.ts# Priority 1: Workflow state change
+    ├── convert-issue-type.ts # Priority 1: Issue type conversion with two-step PUT ({ok, key, issueType, parentKey})
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (plain text → ADF)
     ├── search-issues.ts  # Priority 2: JQL search (lean results)

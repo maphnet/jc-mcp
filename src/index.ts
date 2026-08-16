@@ -8,6 +8,7 @@ import { register as registerGetIssue } from "./tools/get-issue.js";
 import { register as registerGetTransitions } from "./tools/get-transitions.js";
 import { register as registerEditIssue } from "./tools/edit-issue.js";
 import { register as registerTransitionIssue } from "./tools/transition-issue.js";
+import { register as registerConvertIssueType } from "./tools/convert-issue-type.js";
 import { register as registerCreateIssue } from "./tools/create-issue.js";
 import { register as registerAddComment } from "./tools/add-comment.js";
 import { register as registerSearchIssues } from "./tools/search-issues.js";
@@ -35,6 +36,7 @@ async function main(): Promise<void> {
   registerGetTransitions(server, client);
   registerEditIssue(server, client);
   registerTransitionIssue(server, client);
+  registerConvertIssueType(server, client);
 
   // User tools
   registerGetCurrentUser(server, client);
