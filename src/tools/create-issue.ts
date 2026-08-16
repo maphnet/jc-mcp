@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
+import { markdownToAdf } from "../markdown-to-adf.js";
 
 const inputSchema = z.object({
   projectKey: z.string().regex(/^[A-Z][A-Z0-9_]+$/).describe("Project key, e.g. PROJ"),
@@ -9,7 +10,7 @@ const inputSchema = z.object({
   description: z
     .string()
     .optional()
-    .describe("Plain text description (converted to ADF automatically)"),
+    .describe("Description (supports markdown formatting)"),
   parentKey: z
     .string()
     .optional()
@@ -29,16 +30,7 @@ export async function handleCreateIssue(
   };
 
   if (params.description) {
-    fields.description = {
-      type: "doc",
-      version: 1,
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: params.description }],
-        },
-      ],
-    };
+    fields.description = markdownToAdf(params.description);
   }
 
   if (params.parentKey) {

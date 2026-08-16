@@ -55,4 +55,26 @@ describe("jcm_addComment", () => {
       "This is a comment"
     );
   });
+
+  it("converts markdown body to ADF with rich structure", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({ id: "10501", self: "https://..." }),
+    });
+
+    const { handleAddComment } = await import(
+      "../../src/tools/add-comment.js"
+    );
+    await handleAddComment(client, {
+      issueKey: "TEST-1",
+      body: "**Important:** See the list\n\n1. Step one\n2. Step two",
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    const postBody = JSON.parse(opts.body);
+    expect(postBody.body.type).toBe("doc");
+    expect(postBody.body.content[0].type).toBe("paragraph");
+    expect(postBody.body.content[1].type).toBe("orderedList");
+  });
 });

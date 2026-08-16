@@ -43,4 +43,39 @@ describe("jcm_editIssue", () => {
       fields: { summary: "Updated title", labels: ["urgent"] },
     });
   });
+
+  it("converts string description field to ADF, passes other fields through", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      fields: {
+        summary: "Plain string stays as-is",
+        description: "## New description\n\nWith **bold** text",
+      },
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    expect(body.fields.summary).toBe("Plain string stays as-is");
+    expect(body.fields.description.type).toBe("doc");
+    expect(body.fields.description.version).toBe(1);
+    expect(body.fields.description.content[0].type).toBe("heading");
+  });
+
+  it("does not convert description when it is already an ADF object", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const adfObj = { type: "doc", version: 1, content: [] };
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      fields: { description: adfObj },
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    expect(body.fields.description).toEqual(adfObj);
+  });
 });

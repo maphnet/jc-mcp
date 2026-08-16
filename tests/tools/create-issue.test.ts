@@ -80,4 +80,30 @@ describe("jcm_createIssue", () => {
     expect(body.fields.description).toBeDefined();
     expect(body.fields.parent.key).toBe("TEST-1");
   });
+
+  it("converts markdown description to ADF with proper structure", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({ id: "10044", key: "TEST-44", self: "https://..." }),
+    });
+
+    const { handleCreateIssue } = await import(
+      "../../src/tools/create-issue.js"
+    );
+    await handleCreateIssue(client, {
+      projectKey: "TEST",
+      issueType: "Task",
+      summary: "Task with markdown",
+      description: "## Overview\n\n- item one\n- item two",
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    const desc = body.fields.description;
+    expect(desc.type).toBe("doc");
+    expect(desc.version).toBe(1);
+    expect(desc.content[0].type).toBe("heading");
+    expect(desc.content[1].type).toBe("bulletList");
+  });
 });

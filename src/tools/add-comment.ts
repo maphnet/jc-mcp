@@ -1,10 +1,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
+import { markdownToAdf } from "../markdown-to-adf.js";
 
 const inputSchema = z.object({
   issueKey: z.string().regex(/^[A-Z][A-Z0-9_]+-\d+$/).describe("Jira issue key, e.g. PROJ-123"),
-  body: z.string().describe("Comment text (plain text, converted to ADF)"),
+  body: z.string().describe("Comment text (supports markdown formatting)"),
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -13,16 +14,7 @@ export async function handleAddComment(
   client: AtlassianClient,
   params: Input
 ): Promise<string> {
-  const adfBody = {
-    type: "doc",
-    version: 1,
-    content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: params.body }],
-      },
-    ],
-  };
+  const adfBody = markdownToAdf(params.body);
 
   const raw = await client.jiraPost<{ id: string }>(
     `/rest/api/3/issue/${params.issueKey}/comment`,
