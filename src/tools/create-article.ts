@@ -1,13 +1,14 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
+import { markdownToStorage } from "../markdown-to-adf.js";
 
 const inputSchema = z.object({
   spaceId: z.string().regex(/^\d+$/).describe("Confluence space ID"),
   title: z.string().describe("Page title"),
   body: z
     .string()
-    .describe("Page body content (plain text or HTML)"),
+    .describe("Page body content (supports markdown formatting)"),
   parentId: z
     .string()
     .regex(/^\d+$/)
@@ -27,7 +28,7 @@ export async function handleCreateArticle(
     status: "current",
     body: {
       representation: "storage",
-      value: params.body,
+      value: markdownToStorage(params.body),
     },
   };
 

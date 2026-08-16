@@ -48,4 +48,31 @@ describe("jcm_createArticle", () => {
     expect(parsed.title).toBe("New Article");
     expect(parsed.url).toContain("/spaces/KB/pages/67890");
   });
+
+  it("converts markdown body to XHTML storage format", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "67891",
+          title: "MD Article",
+          _links: { webui: "/spaces/KB/pages/67891" },
+        }),
+    });
+
+    const { handleCreateArticle } = await import(
+      "../../src/tools/create-article.js"
+    );
+    await handleCreateArticle(client, {
+      spaceId: "123456",
+      title: "MD Article",
+      body: "## Introduction\n\nSome **bold** text",
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    const reqBody = JSON.parse(opts.body);
+    expect(reqBody.body.value).toContain("<h2>");
+    expect(reqBody.body.value).toContain("<strong>bold</strong>");
+    expect(reqBody.body.representation).toBe("storage");
+  });
 });

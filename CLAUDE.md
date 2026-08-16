@@ -39,6 +39,7 @@ src/
 ├── config.ts             # Env var loading (ATLASSIAN_URL, EMAIL, TOKEN, CLOUD_ID)
 ├── client.ts             # HTTP client for Jira/Confluence REST APIs (Basic auth)
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
+├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
 └── tools/                # One file per MCP tool (16 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
@@ -76,5 +77,6 @@ Required in `.env` (or shell environment):
 - **Flat responses.** Nested Atlassian objects are flattened: `status: "In Progress"` not `status: {name: "In Progress", statusCategory: {...}}`.
 - **No re-fetch after writes.** Write operations return minimal confirmations like `{ok: true, key: "PROJ-1"}`.
 - **ADF conversion.** Jira descriptions (Atlassian Document Format) are converted to markdown server-side.
+- **Markdown input.** Write tools accept markdown-formatted text and convert it to the appropriate format (ADF for Jira, XHTML storage for Confluence) server-side.
 - **Async config.** `loadConfig()` is async — auto-discovers cloudId on startup when not set via env var.
 - **Update this file.** When adding new tools, changing the build system, or altering project structure, update the relevant sections of CLAUDE.md so future sessions stay current.

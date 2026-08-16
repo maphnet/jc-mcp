@@ -1,11 +1,12 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
+import { markdownToStorage } from "../markdown-to-adf.js";
 
 const inputSchema = z.object({
   pageId: z.string().regex(/^\d+$/).describe("Confluence page ID"),
   title: z.string().describe("Page title (required for updates)"),
-  body: z.string().describe("Updated page body content"),
+  body: z.string().describe("Updated page body content (supports markdown formatting)"),
   version: z
     .number()
     .int()
@@ -27,7 +28,7 @@ export async function handleUpdateArticle(
       version: { number: params.version + 1 },
       body: {
         representation: "storage",
-        value: params.body,
+        value: markdownToStorage(params.body),
       },
     }
   );
