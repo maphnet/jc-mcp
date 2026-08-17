@@ -22,10 +22,22 @@ The `--scope user` flag makes the server available across all your projects. Omi
 
 ## Updating
 
-npx caches packages by version. To pull the latest release:
+npx caches packages per package spec — a cache entry created for `@maphnet/jc-mcp` (no version) is **not** refreshed by running `npx @maphnet/jc-mcp@latest`; that creates a separate entry. To actually update a server configured as `npx -y @maphnet/jc-mcp`, clear the stale entry:
 
 ```bash
-npx --yes @maphnet/jc-mcp@latest
+# find and remove the cached copy used by the un-versioned spec
+for d in ~/.npm/_npx/*/node_modules/@maphnet/jc-mcp; do
+  echo "$d: $(node -p "require('$d/package.json').version")"
+done
+rm -rf ~/.npm/_npx/<hash-of-old-version>
+```
+
+Alternatively, configure the server as `npx -y @maphnet/jc-mcp@latest` so every start resolves the newest release.
+
+If you installed globally (`npm i -g @maphnet/jc-mcp`, command `jc-mcp`), update with:
+
+```bash
+npm i -g @maphnet/jc-mcp@latest
 ```
 
 Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new version.
@@ -46,6 +58,10 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_createVersion` | Create a release version | `{id, name}` |
 | `jcm_listVersions` | List project versions | `[{id, name, released, releaseDate}]` |
 | `jcm_releaseVersion` | Mark a version as released | `{ok, id, name}` |
+| `jcm_addIssueLink` | Link two issues (e.g. Blocks, Relates) | `{ok, issueKey, targetKey, linkType}` |
+| `jcm_removeIssueLink` | Delete an issue link by ID | `{ok, linkId}` |
+| `jcm_getIssueLinks` | List links on an issue | `[{id, type, inwardIssue?, outwardIssue?}]` |
+| `jcm_convertIssueType` | Change issue type (e.g. Task → Sub-task with parent) | `{ok, key, issueType, parentKey}` |
 | `jcm_getArticle` | Read a Confluence page | Title + markdown body |
 | `jcm_createArticle` | Create a Confluence page | `{id, url}` |
 | `jcm_updateArticle` | Update a Confluence page | `{ok, id}` |
