@@ -30,7 +30,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Add Comment to Jira Issue",
       description:
-        "Add a comment to a Jira issue. Pass plain text body. Returns {ok, commentId}.",
+        "Add a comment to a Jira issue. Body accepts markdown (headings, tables, code fences, lists). Returns {ok, commentId}.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

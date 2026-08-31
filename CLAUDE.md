@@ -48,7 +48,7 @@ src/
     ├── transition-issue.ts# Priority 1: Workflow state change
     ├── convert-issue-type.ts # Priority 1: Issue type conversion with two-step PUT ({ok, key, issueType, parentKey})
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
-    ├── add-comment.ts    # Priority 2: Comment (plain text → ADF)
+    ├── add-comment.ts    # Priority 2: Comment (markdown → ADF)
     ├── search-issues.ts  # Priority 2: JQL search (lean results)
     ├── get-current-user.ts # User info: authenticated user ({accountId, displayName, email, active})
     ├── lookup-user.ts    # User lookup: find user by email ([{accountId, displayName, email, active}])
