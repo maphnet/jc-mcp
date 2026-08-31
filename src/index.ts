@@ -2,7 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, ConfigError } from "./config.js";
 import { AtlassianClient } from "./client.js";
 import { register as registerGetIssue } from "./tools/get-issue.js";
 import { register as registerGetTransitions } from "./tools/get-transitions.js";
@@ -72,6 +72,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  if (error instanceof ConfigError) {
+    console.error(error.message);
+  } else {
+    console.error("Fatal error:", error);
+  }
   process.exit(1);
 });

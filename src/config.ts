@@ -1,3 +1,10 @@
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
 export interface Config {
   siteUrl: string;
   email: string;
@@ -36,12 +43,21 @@ export async function loadConfig(): Promise<Config> {
   const apiToken = process.env.ATLASSIAN_TOKEN;
   const cloudIdEnv = process.env.ATLASSIAN_CLOUD_ID;
 
-  if (!siteUrl) throw new Error("ATLASSIAN_URL is required");
-  if (!email) throw new Error("ATLASSIAN_EMAIL is required");
-  if (!apiToken) throw new Error("ATLASSIAN_TOKEN is required");
+  const missing: { name: string; description: string }[] = [];
+  if (!siteUrl) missing.push({ name: "ATLASSIAN_URL", description: "Atlassian site URL (e.g. https://yourorg.atlassian.net)" });
+  if (!email) missing.push({ name: "ATLASSIAN_EMAIL", description: "Atlassian account email" });
+  if (!apiToken) missing.push({ name: "ATLASSIAN_TOKEN", description: "Atlassian API token from https://id.atlassian.com/manage-profile/security/api-tokens" });
 
-  const cleanUrl = siteUrl.replace(/\/+$/, "");
+  if (missing.length > 0) {
+    const lines = missing.map((v) => `  ${v.name} — ${v.description}`).join("\n");
+    throw new ConfigError(
+      `Missing required environment variable${missing.length > 1 ? "s" : ""}:\n${lines}\n\n` +
+      `Set these in your MCP client config or in a .env file / shell environment.`
+    );
+  }
+
+  const cleanUrl = siteUrl!.replace(/\/+$/, "");
   const cloudId = cloudIdEnv || (await discoverCloudId(cleanUrl));
 
-  return { siteUrl: cleanUrl, email, apiToken, cloudId };
+  return { siteUrl: cleanUrl, email: email!, apiToken: apiToken!, cloudId };
 }
