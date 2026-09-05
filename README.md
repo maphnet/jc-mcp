@@ -83,6 +83,37 @@ Standard Atlassian MCP servers return raw API responses — deeply nested JSON w
 
 Less tokens = faster responses, lower cost, more room in the context window.
 
+## Write Confirmation (Elicitation Gate)
+
+Set `JCM_CONFIRM_WRITES=true` to require user confirmation before every write operation. When enabled, the following tools present a confirmation form (via MCP elicitation) before executing:
+
+- `jcm_createIssue` — create a Jira issue
+- `jcm_editIssue` — update issue fields
+- `jcm_transitionIssue` — change workflow state
+- `jcm_addComment` — add a comment
+- `jcm_createArticle` — create a Confluence page
+- `jcm_updateArticle` — update a Confluence page
+
+The confirmation shows a title and summary of the pending write. The user can:
+- **Accept** — the write proceeds normally
+- **Decline** or **Cancel** — the write is skipped and the tool returns `{ok: false, message: "...declined by user."}`
+- **Timeout** (client-dependent) — treated as decline
+
+Without the flag (or with any value other than `"true"`), all writes proceed immediately — existing behaviour is unchanged.
+
+### MCP client requirements
+
+The client must support the `elicitation/create` capability (MCP spec 2025-06-18+). In Hermes, confirmations appear as approve/deny buttons in Slack. In Claude Code, they appear as inline prompts.
+
+```bash
+claude mcp add --scope user jc-mcp \
+  -e JCM_CONFIRM_WRITES=true \
+  -e ATLASSIAN_URL=https://yoursite.atlassian.net \
+  -e ATLASSIAN_EMAIL=you@example.com \
+  -e ATLASSIAN_TOKEN=your-api-token \
+  -- npx -y @maphnet/jc-mcp
+```
+
 ## Configuration
 
 | Variable | Required | Description |
@@ -91,6 +122,7 @@ Less tokens = faster responses, lower cost, more room in the context window.
 | `ATLASSIAN_EMAIL` | Yes | Atlassian account email |
 | `ATLASSIAN_TOKEN` | Yes | API token |
 | `ATLASSIAN_CLOUD_ID` | No | Auto-discovered if omitted |
+| `JCM_CONFIRM_WRITES` | No | Set to `"true"` to require user confirmation before writes |
 
 ## License
 
