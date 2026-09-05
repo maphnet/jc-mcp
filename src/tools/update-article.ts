@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToStorage } from "../markdown-to-adf.js";
+import { confirmWrite } from "../elicitation.js";
 
 const inputSchema = z.object({
   pageId: z.string().regex(/^\d+$/).describe("Confluence page ID"),
@@ -17,8 +18,17 @@ type Input = z.infer<typeof inputSchema>;
 
 export async function handleUpdateArticle(
   client: AtlassianClient,
-  params: Input
+  params: Input,
+  server?: McpServer
 ): Promise<string> {
+  if (server) {
+    const summary = `Update Confluence page "${params.title}" (ID ${params.pageId}, version ${params.version} → ${params.version + 1})`;
+    const { confirmed } = await confirmWrite(server, "Update Confluence Article", summary);
+    if (!confirmed) {
+      return JSON.stringify({ ok: false, id: params.pageId, message: "Article not updated — write declined by user." });
+    }
+  }
+
   const raw = await client.confluencePut<Record<string, any>>(
     `/wiki/api/v2/pages/${params.pageId}`,
     {
@@ -59,7 +69,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
       content: [
         {
           type: "text" as const,
-          text: await handleUpdateArticle(client, params),
+          text: await handleUpdateArticle(client, params, server),
         },
       ],
     })

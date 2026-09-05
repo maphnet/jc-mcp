@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToAdf } from "../markdown-to-adf.js";
+import { confirmWrite } from "../elicitation.js";
 
 const inputSchema = z.object({
   issueKey: z.string().regex(/^[A-Z][A-Z0-9_]+-\d+$/).describe("Jira issue key, e.g. PROJ-123"),
@@ -16,8 +17,18 @@ type Input = z.infer<typeof inputSchema>;
 
 export async function handleEditIssue(
   client: AtlassianClient,
-  params: Input
+  params: Input,
+  server?: McpServer
 ): Promise<string> {
+  if (server) {
+    const fieldNames = Object.keys(params.fields).join(", ");
+    const summary = `Edit ${params.issueKey}: update fields [${fieldNames}]`;
+    const { confirmed } = await confirmWrite(server, "Edit Jira Issue", summary);
+    if (!confirmed) {
+      return JSON.stringify({ ok: false, key: params.issueKey, message: "Issue not changed — write declined by user." });
+    }
+  }
+
   const fields = { ...params.fields };
   if (typeof fields.description === "string") {
     fields.description = markdownToAdf(fields.description);
@@ -47,7 +58,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     },
     async (params: Input) => ({
       content: [
-        { type: "text" as const, text: await handleEditIssue(client, params) },
+        { type: "text" as const, text: await handleEditIssue(client, params, server) },
       ],
     })
   );

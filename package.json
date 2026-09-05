@@ -1,6 +1,6 @@
 {
   "name": "@maphnet/jc-mcp",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Token-efficient Jira and Confluence MCP server",
   "type": "module",
   "main": "dist/index.js",

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToAdf } from "../markdown-to-adf.js";
+import { confirmWrite } from "../elicitation.js";
 
 const inputSchema = z.object({
   issueKey: z.string().regex(/^[A-Z][A-Z0-9_]+-\d+$/).describe("Jira issue key, e.g. PROJ-123"),
@@ -12,8 +13,18 @@ type Input = z.infer<typeof inputSchema>;
 
 export async function handleAddComment(
   client: AtlassianClient,
-  params: Input
+  params: Input,
+  server?: McpServer
 ): Promise<string> {
+  if (server) {
+    const preview = params.body.length > 200 ? params.body.slice(0, 200) + "..." : params.body;
+    const summary = `Add comment to ${params.issueKey}:\n${preview}`;
+    const { confirmed } = await confirmWrite(server, "Add Comment", summary);
+    if (!confirmed) {
+      return JSON.stringify({ ok: false, message: "Comment not added — write declined by user." });
+    }
+  }
+
   const adfBody = markdownToAdf(params.body);
 
   const raw = await client.jiraPost<{ id: string }>(
@@ -41,7 +52,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     },
     async (params: Input) => ({
       content: [
-        { type: "text" as const, text: await handleAddComment(client, params) },
+        { type: "text" as const, text: await handleAddComment(client, params, server) },
       ],
     })
   );

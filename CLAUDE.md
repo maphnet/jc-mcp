@@ -37,6 +37,7 @@ The server uses `@modelcontextprotocol/sdk` with stdio transport. Tool implement
 src/
 ├── index.ts              # MCP server init + tool registration + stdio transport
 ├── config.ts             # Env var loading (ATLASSIAN_URL, EMAIL, TOKEN, CLOUD_ID)
+├── elicitation.ts        # Write-confirmation gate (JCM_CONFIRM_WRITES env flag + MCP elicitation)
 ├── client.ts             # HTTP client for Jira/Confluence REST APIs (Basic auth)
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
@@ -74,6 +75,7 @@ Required in `.env` (or shell environment):
 | `ATLASSIAN_EMAIL` | Atlassian account email |
 | `ATLASSIAN_TOKEN` | API token from https://id.atlassian.com/manage-profile/security/api-tokens |
 | `ATLASSIAN_CLOUD_ID` | Cloud instance ID (auto-discovered if omitted; get manually from `{siteUrl}/_edge/tenant_info`) |
+| `JCM_CONFIRM_WRITES` | Set to `"true"` to require user confirmation (MCP elicitation) before write operations |
 
 ## Key Design Principles
 
