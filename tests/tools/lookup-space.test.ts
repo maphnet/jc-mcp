@@ -90,7 +90,7 @@ describe("jcm_lookupSpace", () => {
     register(server as any, client);
 
     expect(registerTool).toHaveBeenCalledTimes(1);
-    const [name, definition] = registerTool.mock.calls[0];
+    const [name, definition, callback] = registerTool.mock.calls[0];
     expect(name).toBe("jcm_lookupSpace");
     expect(definition.title).toBe("Lookup Confluence Space");
     expect(definition.description).toBe(
@@ -111,5 +111,26 @@ describe("jcm_lookupSpace", () => {
     expect(definition.inputSchema.safeParse({ spaceKey: "" }).success).toBe(
       false
     );
+
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          results: [{ id: "123456", key: "VPS-1", name: "VPS One" }],
+        }),
+    });
+
+    await expect(callback({ spaceKey: "VPS-1" })).resolves.toEqual({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            id: "123456",
+            key: "VPS-1",
+            name: "VPS One",
+          }),
+        },
+      ],
+    });
   });
 });

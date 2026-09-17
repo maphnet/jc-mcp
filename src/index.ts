@@ -13,6 +13,7 @@ import { register as registerCreateIssue } from "./tools/create-issue.js";
 import { register as registerAddComment } from "./tools/add-comment.js";
 import { register as registerSearchIssues } from "./tools/search-issues.js";
 import { register as registerGetArticle } from "./tools/get-article.js";
+import { register as registerLookupSpace } from "./tools/lookup-space.js";
 import { register as registerCreateArticle } from "./tools/create-article.js";
 import { register as registerUpdateArticle } from "./tools/update-article.js";
 import { register as registerSearchArticles } from "./tools/search-articles.js";
@@ -62,6 +63,7 @@ async function main(): Promise<void> {
 
   // Priority 3 tools (Confluence)
   registerGetArticle(server, client);
+  registerLookupSpace(server, client);
   registerCreateArticle(server, client);
   registerUpdateArticle(server, client);
   registerSearchArticles(server, client);

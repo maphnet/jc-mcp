@@ -63,9 +63,12 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_getIssueLinks` | List links on an issue | `[{id, type, inwardIssue?, outwardIssue?}]` |
 | `jcm_convertIssueType` | Change issue type (e.g. Task → Sub-task with parent) | `{ok, key, issueType, parentKey}` |
 | `jcm_getArticle` | Read a Confluence page | Title + markdown body |
+| `jcm_lookupSpace` | Resolve a Confluence space key to its numeric ID | `{id, key, name}` |
 | `jcm_createArticle` | Create a Confluence page | `{id, url}` |
 | `jcm_updateArticle` | Update a Confluence page | `{ok, id}` |
 | `jcm_searchArticles` | CQL search | `[{id, title, spaceKey}]` |
+
+Use jcm_lookupSpace with a known space key, then pass its returned id as spaceId to jcm_createArticle.
 
 ## Why This Server?
 
