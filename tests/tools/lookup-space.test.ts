@@ -92,6 +92,10 @@ describe("jcm_lookupSpace", () => {
     expect(registerTool).toHaveBeenCalledTimes(1);
     const [name, definition] = registerTool.mock.calls[0];
     expect(name).toBe("jcm_lookupSpace");
+    expect(definition.title).toBe("Lookup Confluence Space");
+    expect(definition.description).toBe(
+      "Resolve a Confluence space key to its numeric ID for use with jcm_createArticle. Returns {id, key, name}."
+    );
     expect(definition.annotations).toEqual({
       readOnlyHint: true,
       destructiveHint: false,
@@ -100,6 +104,9 @@ describe("jcm_lookupSpace", () => {
     });
     expect(definition.inputSchema.safeParse({ spaceKey: "VPS-1" }).success).toBe(
       true
+    );
+    expect(definition.inputSchema.shape.spaceKey.description).toBe(
+      "Confluence space key"
     );
     expect(definition.inputSchema.safeParse({ spaceKey: "" }).success).toBe(
       false
