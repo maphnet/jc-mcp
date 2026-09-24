@@ -35,7 +35,7 @@ describe("jcm_searchArticles", () => {
                 title: "Setup Guide",
                 type: "page",
               },
-              resultGlobalContainer: { title: "Knowledge Base" },
+              resultGlobalContainer: { title: "Knowledge Base", displayUrl: "/spaces/KB" },
               lastModified: "2026-08-10T10:00:00.000Z",
             },
             {
@@ -44,7 +44,7 @@ describe("jcm_searchArticles", () => {
                 title: "FAQ",
                 type: "page",
               },
-              resultGlobalContainer: { title: "Knowledge Base" },
+              resultGlobalContainer: { title: "Knowledge Base", displayUrl: "/spaces/KB" },
               lastModified: "2026-08-09T15:00:00.000Z",
             },
           ],
@@ -66,12 +66,14 @@ describe("jcm_searchArticles", () => {
         id: "111",
         title: "Setup Guide",
         space: "Knowledge Base",
+        spaceKey: "KB",
         lastModified: "2026-08-10T10:00:00.000Z",
       },
       {
         id: "222",
         title: "FAQ",
         space: "Knowledge Base",
+        spaceKey: "KB",
         lastModified: "2026-08-09T15:00:00.000Z",
       },
     ]);

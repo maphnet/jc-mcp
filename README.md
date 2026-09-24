@@ -62,13 +62,13 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_removeIssueLink` | Delete an issue link by ID | `{ok, linkId}` |
 | `jcm_getIssueLinks` | List links on an issue | `[{id, type, inwardIssue?, outwardIssue?}]` |
 | `jcm_convertIssueType` | Change issue type (e.g. Task → Sub-task with parent) | `{ok, key, issueType, parentKey}` |
-| `jcm_getArticle` | Read a Confluence page | Title + markdown body |
+| `jcm_getArticle` | Read a Confluence page | Title + markdown body + `spaceId`, `parentId` |
 | `jcm_lookupSpace` | Resolve a Confluence space key to its numeric ID | `{id, key, name}` |
 | `jcm_createArticle` | Create a Confluence page | `{id, url}` |
 | `jcm_updateArticle` | Update a Confluence page | `{ok, id}` |
-| `jcm_searchArticles` | CQL search | `[{id, title, spaceKey}]` |
+| `jcm_searchArticles` | CQL search | `[{id, title, space, spaceKey, lastModified}]` |
 
-Use jcm_lookupSpace with a known space key, then pass its returned id as spaceId to jcm_createArticle.
+To create a page next to an existing one, pass its `spaceId` (and `parentId`) from jcm_getArticle to jcm_createArticle. Otherwise resolve a space key (e.g. `spaceKey` from jcm_searchArticles) via jcm_lookupSpace. Space names are not unique — don't use them to pick a space.
 
 ## Why This Server?
 

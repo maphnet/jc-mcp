@@ -38,6 +38,8 @@ export async function handleSearchArticles(
       id: r.content?.id ?? "",
       title: r.content?.title ?? "",
       space: r.resultGlobalContainer?.title ?? "",
+      spaceKey:
+        r.resultGlobalContainer?.displayUrl?.match(/\/spaces\/([^/]+)/)?.[1] ?? "",
       lastModified: r.lastModified ?? "",
     })
   );
@@ -51,7 +53,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Search Confluence Articles",
       description:
-        "Search Confluence pages using CQL. Returns [{id, title, space, lastModified}].",
+        "Search Confluence pages using CQL. Returns [{id, title, space, spaceKey, lastModified}].",
       inputSchema,
       annotations: {
         readOnlyHint: true,

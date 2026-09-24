@@ -25,6 +25,8 @@ export async function handleGetArticle(
     body: storageToMarkdown(raw.body?.storage?.value ?? ""),
     status: raw.status ?? "",
     version: raw.version?.number ?? 0,
+    spaceId: raw.spaceId ?? "",
+    parentId: raw.parentId ?? undefined,
   };
 
   return JSON.stringify(lean);
@@ -36,7 +38,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Confluence Article",
       description:
-        "Fetch a Confluence page by ID. Returns {id, title, body (markdown), status, version}.",
+        "Fetch a Confluence page by ID. Returns {id, title, body (markdown), status, version, spaceId, parentId?}.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

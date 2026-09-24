@@ -5,7 +5,9 @@ import { markdownToStorage } from "../markdown-to-adf.js";
 import { confirmWrite } from "../elicitation.js";
 
 const inputSchema = z.object({
-  spaceId: z.string().regex(/^\d+$/).describe("Confluence space ID"),
+  spaceId: z.string().regex(/^\d+$/).describe(
+      "Numeric Confluence space ID — take spaceId from jcm_getArticle, or resolve a space key via jcm_lookupSpace"
+    ),
   title: z.string().describe("Page title"),
   body: z
     .string()

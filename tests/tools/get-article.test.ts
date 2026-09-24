@@ -32,6 +32,8 @@ describe("jcm_getArticle", () => {
           title: "Getting Started",
           status: "current",
           version: { number: 3 },
+          spaceId: "32800772",
+          parentId: "98765",
           body: {
             storage: {
               value: "<p>This is the <strong>article</strong> body.</p>",
@@ -52,5 +54,31 @@ describe("jcm_getArticle", () => {
     expect(parsed.body).toBe("This is the **article** body.");
     expect(parsed.status).toBe("current");
     expect(parsed.version).toBe(3);
+    expect(parsed.spaceId).toBe("32800772");
+    expect(parsed.parentId).toBe("98765");
+  });
+
+  it("omits parentId for top-level pages", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: "1",
+          title: "Home",
+          status: "current",
+          version: { number: 1 },
+          spaceId: "32800772",
+          parentId: null,
+          body: { storage: { value: "" } },
+        }),
+    });
+
+    const { handleGetArticle } = await import(
+      "../../src/tools/get-article.js"
+    );
+    const parsed = JSON.parse(await handleGetArticle(client, { pageId: "1" }));
+
+    expect(parsed.spaceId).toBe("32800772");
+    expect(parsed).not.toHaveProperty("parentId");
   });
 });

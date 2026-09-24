@@ -34,12 +34,15 @@ export interface LeanArticle {
   body: string;
   status: string;
   version: number;
+  spaceId: string;
+  parentId?: string;
 }
 
 export interface LeanArticleSearchResult {
   id: string;
   title: string;
   space: string;
+  spaceKey: string;
   lastModified: string;
 }
 
