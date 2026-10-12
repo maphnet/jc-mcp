@@ -60,9 +60,17 @@ export function httpOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): HttpOp
   };
 }
 
-/** Host header values accepted for DNS-rebinding protection. Loopback binds accept every loopback name. */
-function allowedHostsFor(host: string, port: number): Set<string> {
-  const names = LOOPBACK.includes(host) ? LOOPBACK : [host];
+const UNSPECIFIED_ADDRESSES = ["0.0.0.0", "::"];
+
+/**
+ * Host header values accepted for DNS-rebinding protection. Built from both the
+ * configured host and the actual bound address (Node normalizes spellings like
+ * "0:0:0:0:0:0:0:1" to "::1"), so unusual-but-equivalent host spellings don't
+ * slip past the configured-host-only check. Loopback binds accept every loopback name.
+ */
+function allowedHostsFor(host: string, boundAddress: string, port: number): Set<string> {
+  const isLoopback = LOOPBACK.includes(host) || LOOPBACK.includes(boundAddress);
+  const names = isLoopback ? [...LOOPBACK, host, boundAddress] : [host, boundAddress];
   return new Set(names.map((h) => `${bracket(h)}:${port}`));
 }
 
@@ -195,8 +203,15 @@ export async function startHttpServer(
     });
   });
 
-  const port = (httpServer.address() as AddressInfo).port;
-  allowedHosts = allowedHostsFor(opts.host, port);
+  const address = httpServer.address() as AddressInfo;
+  if (UNSPECIFIED_ADDRESSES.includes(address.address)) {
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    throw new Error(
+      `Invalid JCM_HTTP_HOST: ${opts.host} resolved to a wildcard bind (${address.address}); use a specific loopback or host address`
+    );
+  }
+  const port = address.port;
+  allowedHosts = allowedHostsFor(opts.host, address.address, port);
   allowedOrigins = new Set([...allowedHosts].map((h) => `http://${h}`));
   if (!LOOPBACK.includes(opts.host)) {
     console.error(
