@@ -12,16 +12,6 @@ import {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ponytail: Node's default (non-keepAlive) agent tears down the client socket as soon as
-// the response completes, even if a large request body write hasn't fully flushed to the
-// kernel yet — a benign race that surfaces as an uncaught ECONNRESET/EPIPE from the
-// oversized-body test below. The response status assertion already proves server
-// behavior; swallow only these two codes.
-process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
-  if (err.code === "ECONNRESET" || err.code === "EPIPE") return;
-  throw err;
-});
-
 function fakeClient() {
   const jiraPut = vi.fn(async (_path: string, _body: unknown) => undefined);
   const client = {
@@ -94,12 +84,18 @@ async function callJson(client: Client, name: string, args: Record<string, unkno
 
 function raw(
   port: number,
-  opts: { method: string; path?: string; headers?: Record<string, string>; body?: string }
+  opts: {
+    method: string;
+    path?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    connectHost?: string;
+  }
 ) {
   return new Promise<{ status: number; body: string }>((resolve, reject) => {
     const req = request(
       {
-        host: "127.0.0.1",
+        host: opts.connectHost ?? "127.0.0.1",
         port,
         method: opts.method,
         path: opts.path ?? "/mcp",
@@ -116,7 +112,19 @@ function raw(
         res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
       }
     );
-    req.on("error", reject);
+    // ponytail: Node's default (non-keepAlive) agent tears down the client socket as soon
+    // as the server responds, even if the request body write hasn't fully flushed to the
+    // kernel yet — a benign race on the oversized-body test. The write failure can surface
+    // either as a ClientRequest 'error' or, once the request is considered "finished", as a
+    // bare socket write error with no request-level listener — so swallow ECONNRESET/EPIPE
+    // on both, scoped to this one request only. The response status assertion (when it
+    // arrives) still proves server behavior.
+    const tolerate = (err: NodeJS.ErrnoException) => {
+      if (err.code === "ECONNRESET" || err.code === "EPIPE") return;
+      reject(err);
+    };
+    req.on("error", tolerate);
+    req.on("socket", (socket) => socket.on("error", tolerate));
     req.end(opts.body);
   });
 }
@@ -168,6 +176,42 @@ describe("httpOptionsFromEnv", () => {
   it("rejects wildcard hosts", () => {
     expect(() => httpOptionsFromEnv({ JCM_HTTP_HOST: "0.0.0.0" })).toThrow(/JCM_HTTP_HOST/);
     expect(() => httpOptionsFromEnv({ JCM_HTTP_HOST: "::" })).toThrow(/JCM_HTTP_HOST/);
+  });
+});
+
+describe("startHttpServer wildcard bind guard", () => {
+  it("rejects a host spelling (\"0\") that Node resolves to the wildcard address, leaving no listener behind", async () => {
+    await expect(
+      startHttpServer(fakeClient().client, { host: "0", port: 0, path: "/mcp", idleTimeoutMs: 60_000 })
+    ).rejects.toThrow(/wildcard/);
+  });
+
+  it("accepts the expanded IPv6 loopback spelling and matches Host: [::1]:<port>", async () => {
+    let h: HttpServerHandle;
+    try {
+      h = await startHttpServer(fakeClient().client, {
+        host: "0:0:0:0:0:0:0:1",
+        port: 0,
+        path: "/mcp",
+        idleTimeoutMs: 60_000,
+      });
+    } catch (err) {
+      // No IPv6 loopback available in this environment (e.g. some CI sandboxes).
+      if ((err as NodeJS.ErrnoException).code === "EADDRNOTAVAIL") return;
+      throw err;
+    }
+    try {
+      const res = await raw(h.port, {
+        method: "POST",
+        path: "/mcp",
+        connectHost: "::1",
+        headers: { host: `[::1]:${h.port}` },
+        body: INIT,
+      });
+      expect(res.status).toBe(200);
+    } finally {
+      await h.close();
+    }
   });
 });
 
