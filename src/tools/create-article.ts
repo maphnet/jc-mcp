@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestId } from "@modelcontextprotocol/sdk/types.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToStorage } from "../markdown-to-adf.js";
 import { confirmWrite } from "../elicitation.js";
@@ -24,11 +25,12 @@ type Input = z.infer<typeof inputSchema>;
 export async function handleCreateArticle(
   client: AtlassianClient,
   params: Input,
-  server?: McpServer
+  server?: McpServer,
+  requestId?: RequestId
 ): Promise<string> {
   if (server) {
     const summary = `Create Confluence page "${params.title}" in space ${params.spaceId}`;
-    const { confirmed } = await confirmWrite(server, "Create Confluence Article", summary);
+    const { confirmed } = await confirmWrite(server, "Create Confluence Article", summary, requestId);
     if (!confirmed) {
       return JSON.stringify({ ok: false, message: "Article not created — write declined by user." });
     }
@@ -76,11 +78,11 @@ export function register(server: McpServer, client: AtlassianClient): void {
         openWorldHint: true,
       },
     },
-    async (params: Input) => ({
+    async (params: Input, extra) => ({
       content: [
         {
           type: "text" as const,
-          text: await handleCreateArticle(client, params, server),
+          text: await handleCreateArticle(client, params, server, extra.requestId),
         },
       ],
     })

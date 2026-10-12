@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestId } from "@modelcontextprotocol/sdk/types.js";
 import { AtlassianClient } from "../client.js";
 import { confirmWrite } from "../elicitation.js";
 
@@ -16,11 +17,12 @@ type Input = z.infer<typeof inputSchema>;
 export async function handleTransitionIssue(
   client: AtlassianClient,
   params: Input,
-  server?: McpServer
+  server?: McpServer,
+  requestId?: RequestId
 ): Promise<string> {
   if (server) {
     const summary = `Transition ${params.issueKey} via transition ID ${params.transitionId}`;
-    const { confirmed } = await confirmWrite(server, "Transition Jira Issue", summary);
+    const { confirmed } = await confirmWrite(server, "Transition Jira Issue", summary, requestId);
     if (!confirmed) {
       return JSON.stringify({ ok: false, key: params.issueKey, message: "Transition not applied — write declined by user." });
     }
@@ -53,11 +55,11 @@ export function register(server: McpServer, client: AtlassianClient): void {
         openWorldHint: true,
       },
     },
-    async (params: Input) => ({
+    async (params: Input, extra) => ({
       content: [
         {
           type: "text" as const,
-          text: await handleTransitionIssue(client, params, server),
+          text: await handleTransitionIssue(client, params, server, extra.requestId),
         },
       ],
     })

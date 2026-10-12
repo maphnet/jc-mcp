@@ -222,3 +222,36 @@ describe("startHttpServer session isolation", () => {
     }
   });
 });
+
+describe("startHttpServer elicitation routing", () => {
+  it("prompts only the session that triggered the write; a decline does not affect others", async () => {
+    process.env.JCM_CONFIRM_WRITES = "true";
+    const { client: atlassian, jiraPut } = fakeClient();
+    const h = await start(atlassian);
+
+    const seenA: string[] = [];
+    const seenB: string[] = [];
+    const a = await connect(h, (m) => (seenA.push(m), "accept"));
+    const b = await connect(h, (m) => (seenB.push(m), "decline"));
+
+    const [resA, resB] = await Promise.all([
+      callJson(a.client, "jcm_editIssue", { issueKey: "AAA-1", fields: { summary: "x" } }),
+      callJson(b.client, "jcm_editIssue", { issueKey: "BBB-1", fields: { summary: "y" } }),
+    ]);
+
+    expect(resA).toEqual({ ok: true, key: "AAA-1" });
+    expect(resB.ok).toBe(false);
+    expect(resB.message).toContain("declined");
+
+    expect(seenA).toHaveLength(1);
+    expect(seenA[0]).toContain("AAA-1");
+    expect(seenB).toHaveLength(1);
+    expect(seenB[0]).toContain("BBB-1");
+
+    expect(jiraPut).toHaveBeenCalledTimes(1);
+    expect(jiraPut.mock.calls[0][0]).toBe("/rest/api/3/issue/AAA-1");
+
+    // The declining session keeps working.
+    expect((await callJson(b.client, "jcm_getIssue", { issueKey: "BBB-2" })).key).toBe("BBB-2");
+  });
+});

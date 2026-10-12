@@ -117,3 +117,22 @@ describe("confirmWrite", () => {
     expect(result).toEqual({ confirmed: false });
   });
 });
+
+describe("confirmWrite relatedRequestId", () => {
+  afterEach(() => {
+    delete process.env.JCM_CONFIRM_WRITES;
+  });
+
+  it("sends the elicitation on the triggering request's stream", async () => {
+    process.env.JCM_CONFIRM_WRITES = "true";
+    const elicitInput = vi
+      .fn()
+      .mockResolvedValue({ action: "accept", content: { confirm: true } });
+    const server = { server: { elicitInput } } as any;
+
+    const result = await confirmWrite(server, "Title", "Summary", 7);
+
+    expect(result.confirmed).toBe(true);
+    expect(elicitInput.mock.calls[0][1]).toEqual({ relatedRequestId: 7 });
+  });
+});

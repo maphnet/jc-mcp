@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestId } from "@modelcontextprotocol/sdk/types.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToAdf } from "../markdown-to-adf.js";
 import { confirmWrite } from "../elicitation.js";
@@ -14,12 +15,13 @@ type Input = z.infer<typeof inputSchema>;
 export async function handleAddComment(
   client: AtlassianClient,
   params: Input,
-  server?: McpServer
+  server?: McpServer,
+  requestId?: RequestId
 ): Promise<string> {
   if (server) {
     const preview = params.body.length > 200 ? params.body.slice(0, 200) + "..." : params.body;
     const summary = `Add comment to ${params.issueKey}:\n${preview}`;
-    const { confirmed } = await confirmWrite(server, "Add Comment", summary);
+    const { confirmed } = await confirmWrite(server, "Add Comment", summary, requestId);
     if (!confirmed) {
       return JSON.stringify({ ok: false, message: "Comment not added — write declined by user." });
     }
@@ -50,9 +52,9 @@ export function register(server: McpServer, client: AtlassianClient): void {
         openWorldHint: true,
       },
     },
-    async (params: Input) => ({
+    async (params: Input, extra) => ({
       content: [
-        { type: "text" as const, text: await handleAddComment(client, params, server) },
+        { type: "text" as const, text: await handleAddComment(client, params, server, extra.requestId) },
       ],
     })
   );
