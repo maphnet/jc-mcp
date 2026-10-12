@@ -223,8 +223,8 @@ Date measured: 2026-10-12, Node v24.19.0. Procedure: start the server with fake 
 
 | Mode | Processes | Sessions | Measured RSS |
 |---|---|---|---|
-| stdio (`node dist/index.js`) | 1 per session | 1 | 4.1 MB |
-| stdio, 6 sessions | 6 | 6 | 24.3 MB (6 × above) |
+| stdio (`node dist/index.js`) | 1 per session | 1 | 78.2 MB |
+| stdio, 6 sessions | 6 | 6 | 469.2 MB (6 × above) |
 | HTTP, idle | 1 | 0 | 90.7 MB |
 | HTTP, 6 sessions | 1 | 6 | 92.9 MB |
 
