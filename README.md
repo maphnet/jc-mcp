@@ -127,6 +127,109 @@ claude mcp add --scope user jc-mcp \
 | `ATLASSIAN_CLOUD_ID` | No | Auto-discovered if omitted |
 | `JCM_CONFIRM_WRITES` | No | Set to `"true"` to require user confirmation before writes |
 
+## HTTP transport (shared multi-client server)
+
+By default jc-mcp speaks MCP over **stdio**, one process per client session. Set `JCM_TRANSPORT=http` to run one long-lived process per credential set that many clients (Claude Code, Codex, …) share over MCP Streamable HTTP. Every client session gets its own MCP session (isolated responses and write-confirmation prompts). All sessions share one Atlassian client.
+
+| Variable | Default | Description |
+|---|---|---|
+| `JCM_TRANSPORT` | `stdio` | `http` enables HTTP mode; anything else keeps stdio |
+| `JCM_HTTP_HOST` | `127.0.0.1` | Bind address. Keep it on loopback (see Security) |
+| `JCM_HTTP_PORT` | `3000` | Listen port. Use a distinct port per credential set |
+| `JCM_HTTP_PATH` | `/mcp` | Endpoint path |
+| `JCM_HTTP_IDLE_TIMEOUT_MS` | `1800000` | Sessions with no open stream and no activity for this long are closed. Clients that disconnect cleanly (`DELETE`) are removed immediately |
+
+**Security:** the HTTP endpoint has **no authentication**. Any local process that can reach the port acts with the configured Atlassian credentials. It is meant for trusted, single-user hosts on loopback only. Requests whose `Host` header is not `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>` (or exactly `<host>:<port>` for a non-loopback bind) get `403` (DNS-rebinding protection). Wildcard binds such as `0.0.0.0` are unsupported.
+
+### systemd user services (one per credential set)
+
+Use one template unit, `~/.config/systemd/user/jc-mcp@.service`:
+
+```ini
+[Unit]
+Description=jc-mcp HTTP server (%i)
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/mcp/secrets/%i-jc-mcp.env
+EnvironmentFile=%h/.config/jc-mcp/%i.env
+Environment=JCM_TRANSPORT=http
+# systemd does not load nvm: use the absolute output of `command -v node`
+ExecStart=/home/USER/.nvm/versions/node/v24.0.0/bin/node /home/USER/dev/jc-mcp/dist/index.js
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+```
+
+Per-instance port files, `~/.config/jc-mcp/<set>.env`:
+
+```bash
+# ~/.config/jc-mcp/maphnet.env
+JCM_HTTP_PORT=3101
+# ~/.config/jc-mcp/publius.env
+JCM_HTTP_PORT=3102
+# ~/.config/jc-mcp/lektra.env
+JCM_HTTP_PORT=3103
+```
+
+`EnvironmentFile` accepts plain `KEY=VALUE` lines only. If a secrets file uses `export KEY=VALUE`, remove the `export` prefixes.
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now jc-mcp@maphnet jc-mcp@publius jc-mcp@lektra
+journalctl --user -u jc-mcp@maphnet -f    # expect: jc-mcp server running via http at http://127.0.0.1:3101/mcp
+```
+
+After upgrading jc-mcp (`npm run build`), run `systemctl --user restart 'jc-mcp@*'`.
+
+### Client configuration
+
+Claude Code (project `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "maphnet-jc-mcp": { "type": "http", "url": "http://127.0.0.1:3101/mcp" }
+  }
+}
+```
+
+Or from the CLI: `claude mcp add --transport http maphnet-jc-mcp http://127.0.0.1:3101/mcp`.
+
+Codex (`~/.codex/config.toml` or project `.codex/config.toml`):
+
+```toml
+[mcp_servers.maphnet-jc-mcp]
+url = "http://127.0.0.1:3101/mcp"
+```
+
+Older Codex releases also need `experimental_use_rmcp_client = true` at the top level of `config.toml`.
+
+### Migrating from stdio group entries
+
+1. Start the systemd instances above and confirm each one logs its URL.
+2. In each of `~/.config/mcp/groups/maphnet.json`, `publius.json` and `lektra.json`, replace the jc-mcp stdio entry (`command`/`args`/env sourcing) with an HTTP entry: `{ "type": "http", "url": "http://127.0.0.1:<port>/mcp" }` (ports 3101/3102/3103).
+3. Re-apply the groups in each project: `mcp-group rm <group> <dir>` then `mcp-group add <group> <dir>`.
+4. Update Codex `config.toml` entries as shown above, and re-enable the jc-mcp entries that were disabled for memory reasons.
+5. Restart running Claude Code and Codex sessions. MCP server config is read at session start, so existing sessions keep their old stdio processes until restarted.
+6. Verify in a fresh session: the client lists the jc-mcp tools, and a read-only call such as `jcm_getIssue` on a known key succeeds.
+
+### Memory: stdio vs HTTP
+
+Date measured: 2026-10-12, Node v24.19.0. Procedure: start the server with fake credentials, connect N SDK clients and run `tools/list` on each, then read `ps -o rss= -p <pid>`.
+
+| Mode | Processes | Sessions | Measured RSS |
+|---|---|---|---|
+| stdio (`node dist/index.js`) | 1 per session | 1 | 4.1 MB |
+| stdio, 6 sessions | 6 | 6 | 24.3 MB (6 × above) |
+| HTTP, idle | 1 | 0 | 90.7 MB |
+| HTTP, 6 sessions | 1 | 6 | 92.9 MB |
+
+The previous npx-launched stdio setup used 1.3-1.7 GB combined RSS across sessions, including the npm wrapper processes.
+
 ## License
 
 MIT
