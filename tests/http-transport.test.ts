@@ -12,6 +12,16 @@ import {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ponytail: Node's default (non-keepAlive) agent tears down the client socket as soon as
+// the response completes, even if a large request body write hasn't fully flushed to the
+// kernel yet — a benign race that surfaces as an uncaught ECONNRESET/EPIPE from the
+// oversized-body test below. The response status assertion already proves server
+// behavior; swallow only these two codes.
+process.on("uncaughtException", (err: NodeJS.ErrnoException) => {
+  if (err.code === "ECONNRESET" || err.code === "EPIPE") return;
+  throw err;
+});
+
 function fakeClient() {
   const jiraPut = vi.fn(async (_path: string, _body: unknown) => undefined);
   const client = {
@@ -45,9 +55,16 @@ async function start(client: AtlassianClient, idleTimeoutMs = 60_000) {
   return handle;
 }
 
+// Rejects the client's standalone GET SSE stream with a 405, which the SDK treats as
+// "server doesn't offer one" (no error). Forces any server->client message, including
+// elicitation prompts, onto the POST response stream via relatedRequestId.
+const rejectGetFetch: typeof fetch = (input, init) =>
+  init?.method === "GET" ? Promise.resolve(new Response(null, { status: 405 })) : fetch(input, init);
+
 async function connect(
   h: HttpServerHandle,
-  onElicit?: (message: string) => "accept" | "decline"
+  onElicit?: (message: string) => "accept" | "decline",
+  opts?: { noGetStream?: boolean }
 ) {
   const client = new Client(
     { name: "test", version: "0.0.0" },
@@ -61,7 +78,10 @@ async function connect(
         : ({ action: "decline" } as const)
     );
   }
-  const transport = new StreamableHTTPClientTransport(new URL(h.url));
+  const transport = new StreamableHTTPClientTransport(
+    new URL(h.url),
+    opts?.noGetStream ? { fetch: rejectGetFetch } : undefined
+  );
   await client.connect(transport);
   clients.push(client);
   return { client, transport };
@@ -140,6 +160,15 @@ describe("httpOptionsFromEnv", () => {
       /JCM_HTTP_IDLE_TIMEOUT_MS/
     );
   });
+
+  it("falls back to the default port when JCM_HTTP_PORT is empty", () => {
+    expect(httpOptionsFromEnv({ JCM_HTTP_PORT: "" }).port).toBe(3000);
+  });
+
+  it("rejects wildcard hosts", () => {
+    expect(() => httpOptionsFromEnv({ JCM_HTTP_HOST: "0.0.0.0" })).toThrow(/JCM_HTTP_HOST/);
+    expect(() => httpOptionsFromEnv({ JCM_HTTP_HOST: "::" })).toThrow(/JCM_HTTP_HOST/);
+  });
 });
 
 describe("startHttpServer request guards", () => {
@@ -191,6 +220,48 @@ describe("startHttpServer request guards", () => {
     const res = await raw(h.port, { method: "POST", body: PING });
     expect(res.status).toBe(400);
   });
+
+  it("rejects a foreign Origin header with 403", async () => {
+    const h = await start(fakeClient().client);
+    const res = await raw(h.port, {
+      method: "POST",
+      headers: { origin: "http://evil.example" },
+      body: INIT,
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("accepts a matching loopback Origin", async () => {
+    const h = await start(fakeClient().client);
+    const res = await raw(h.port, {
+      method: "POST",
+      headers: { origin: `http://127.0.0.1:${h.port}` },
+      body: INIT,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 415 for a non-JSON Content-Type", async () => {
+    const h = await start(fakeClient().client);
+    const res = await raw(h.port, {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: INIT,
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it("returns 413 for a body over the size cap", async () => {
+    const h = await start(fakeClient().client);
+    const MAX_BODY_BYTES = 4 * 1024 * 1024;
+    const oversized = JSON.stringify({
+      ...JSON.parse(INIT),
+      padding: "x".repeat(MAX_BODY_BYTES + 1024),
+    });
+    const res = await raw(h.port, { method: "POST", body: oversized });
+    expect(res.status).toBe(413);
+  });
+
 });
 
 describe("startHttpServer session isolation", () => {
@@ -231,8 +302,8 @@ describe("startHttpServer elicitation routing", () => {
 
     const seenA: string[] = [];
     const seenB: string[] = [];
-    const a = await connect(h, (m) => (seenA.push(m), "accept"));
-    const b = await connect(h, (m) => (seenB.push(m), "decline"));
+    const a = await connect(h, (m) => (seenA.push(m), "accept"), { noGetStream: true });
+    const b = await connect(h, (m) => (seenB.push(m), "decline"), { noGetStream: true });
 
     const [resA, resB] = await Promise.all([
       callJson(a.client, "jcm_editIssue", { issueKey: "AAA-1", fields: { summary: "x" } }),
@@ -283,10 +354,14 @@ describe("startHttpServer session lifecycle", () => {
   });
 
   it("does not sweep a connected client holding an open SSE stream", async () => {
-    const h = await start(fakeClient().client, 200);
+    // idleTimeoutMs=100ms: the normal cutoff is 100ms, the hard reclaim cutoff is
+    // 4x = 400ms. Sleeping 200ms is 2x past the normal cutoff (proving the open
+    // stream — not timing luck — is what keeps it alive) and 2x short of the hard
+    // cutoff, giving slack on both sides instead of a 200ms/400ms photo finish.
+    const h = await start(fakeClient().client, 100);
     const { client } = await connect(h);
 
-    await sleep(600);
+    await sleep(200);
 
     expect(h.sessionCount()).toBe(1);
     expect((await callJson(client, "jcm_getIssue", { issueKey: "AAA-9" })).key).toBe("AAA-9");
