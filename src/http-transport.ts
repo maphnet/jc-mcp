@@ -32,22 +32,30 @@ interface Session {
 }
 
 const LOOPBACK = ["127.0.0.1", "localhost", "::1"];
+const WILDCARD_HOSTS = ["0.0.0.0", "::", "[::]"];
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
 
 const bracket = (host: string) => (host.includes(":") ? `[${host}]` : host);
 
 export function httpOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): HttpOptions {
-  const port = Number(env.JCM_HTTP_PORT ?? 3000);
-  const idleTimeoutMs = Number(env.JCM_HTTP_IDLE_TIMEOUT_MS ?? 1_800_000);
+  const port = Number(env.JCM_HTTP_PORT || 3000);
+  const idleTimeoutMs = Number(env.JCM_HTTP_IDLE_TIMEOUT_MS || 1_800_000);
+  const host = env.JCM_HTTP_HOST || "127.0.0.1";
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new Error(`Invalid JCM_HTTP_PORT: ${env.JCM_HTTP_PORT}`);
   }
   if (!Number.isFinite(idleTimeoutMs) || idleTimeoutMs <= 0) {
     throw new Error(`Invalid JCM_HTTP_IDLE_TIMEOUT_MS: ${env.JCM_HTTP_IDLE_TIMEOUT_MS}`);
   }
+  if (WILDCARD_HOSTS.includes(host)) {
+    throw new Error(
+      `Invalid JCM_HTTP_HOST: ${host} is a wildcard bind; use a specific loopback or host address`
+    );
+  }
   return {
-    host: env.JCM_HTTP_HOST ?? "127.0.0.1",
+    host,
     port,
-    path: env.JCM_HTTP_PATH ?? "/mcp",
+    path: env.JCM_HTTP_PATH || "/mcp",
     idleTimeoutMs,
   };
 }
@@ -58,11 +66,34 @@ function allowedHostsFor(host: string, port: number): Set<string> {
   return new Set(names.map((h) => `${bracket(h)}:${port}`));
 }
 
-// ponytail: no body size cap; loopback-only trusted transport. Add a limit if ever exposed beyond localhost.
-async function readJson(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+class PayloadTooLargeError extends Error {}
+
+/** Reads and parses a JSON body, discarding (not buffering) bytes past the cap so memory stays bounded. */
+function readJsonCapped(req: IncomingMessage, maxBytes: number): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let total = 0;
+    let tooLarge = false;
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => {
+      if (tooLarge) return;
+      total += chunk.length;
+      if (total > maxBytes) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (tooLarge) return reject(new PayloadTooLargeError());
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on("error", reject);
+  });
 }
 
 function sendError(res: ServerResponse, status: number, code: number, message: string): void {
@@ -81,6 +112,7 @@ export async function startHttpServer(
 ): Promise<HttpServerHandle> {
   const sessions = new Map<string, Session>();
   let allowedHosts = new Set<string>();
+  let allowedOrigins = new Set<string>();
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (new URL(req.url ?? "/", "http://localhost").pathname !== opts.path) {
@@ -89,12 +121,29 @@ export async function startHttpServer(
     if (!allowedHosts.has(req.headers.host ?? "")) {
       return sendError(res, 403, -32000, "Forbidden: invalid Host header");
     }
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins.has(origin)) {
+      return sendError(res, 403, -32000, "Forbidden: invalid Origin header");
+    }
 
     let body: unknown;
     if (req.method === "POST") {
+      const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
+      if (contentType !== "application/json") {
+        req.resume();
+        return sendError(res, 415, -32000, "Unsupported Media Type: expected application/json");
+      }
+      const contentLength = Number(req.headers["content-length"]);
+      if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+        req.resume();
+        return sendError(res, 413, -32000, "Payload too large");
+      }
       try {
-        body = await readJson(req);
-      } catch {
+        body = await readJsonCapped(req, MAX_BODY_BYTES);
+      } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+          return sendError(res, 413, -32000, "Payload too large");
+        }
         return sendError(res, 400, -32700, "Parse error");
       }
     }
@@ -148,6 +197,7 @@ export async function startHttpServer(
 
   const port = (httpServer.address() as AddressInfo).port;
   allowedHosts = allowedHostsFor(opts.host, port);
+  allowedOrigins = new Set([...allowedHosts].map((h) => `http://${h}`));
   if (!LOOPBACK.includes(opts.host)) {
     console.error(
       `jc-mcp: warning: binding to non-loopback host ${opts.host}; this transport has no auth and is meant for trusted local use only`
@@ -169,7 +219,7 @@ export async function startHttpServer(
       const idle =
         session.openRequests === 0 ? session.lastActivity < cutoff : session.lastActivity < hardCutoff;
       if (idle) {
-        void session.transport.close();
+        session.transport.close().catch((err) => console.error("jc-mcp: error closing idle session:", err));
       }
     }
   }, Math.min(opts.idleTimeoutMs, 60_000));
@@ -181,7 +231,11 @@ export async function startHttpServer(
     sessionCount: () => sessions.size,
     async close() {
       clearInterval(sweep);
-      await Promise.all([...sessions.values()].map((s) => s.transport.close()));
+      await Promise.all(
+        [...sessions.values()].map((s) =>
+          s.transport.close().catch((err) => console.error("jc-mcp: error closing session:", err))
+        )
+      );
       sessions.clear();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
