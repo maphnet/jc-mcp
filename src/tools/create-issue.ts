@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestId } from "@modelcontextprotocol/sdk/types.js";
 import { AtlassianClient } from "../client.js";
 import { markdownToAdf } from "../markdown-to-adf.js";
 import { confirmWrite } from "../elicitation.js";
@@ -23,11 +24,12 @@ type Input = z.infer<typeof inputSchema>;
 export async function handleCreateIssue(
   client: AtlassianClient,
   params: Input,
-  server?: McpServer
+  server?: McpServer,
+  requestId?: RequestId
 ): Promise<string> {
   if (server) {
     const summary = `Create ${params.issueType} in ${params.projectKey}: "${params.summary}"`;
-    const { confirmed } = await confirmWrite(server, "Create Jira Issue", summary);
+    const { confirmed } = await confirmWrite(server, "Create Jira Issue", summary, requestId);
     if (!confirmed) {
       return JSON.stringify({ ok: false, message: "Issue not created — write declined by user." });
     }
@@ -74,9 +76,9 @@ export function register(server: McpServer, client: AtlassianClient): void {
         openWorldHint: true,
       },
     },
-    async (params: Input) => ({
+    async (params: Input, extra) => ({
       content: [
-        { type: "text" as const, text: await handleCreateIssue(client, params, server) },
+        { type: "text" as const, text: await handleCreateIssue(client, params, server, extra.requestId) },
       ],
     })
   );

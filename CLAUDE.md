@@ -31,11 +31,13 @@ Requires `npm login` if not already authenticated.
 
 ## Architecture
 
-The server uses `@modelcontextprotocol/sdk` with stdio transport. Tool implementations live in `src/tools/`, each exporting a `register(server, client)` function and a testable `handle*` function.
+The server uses `@modelcontextprotocol/sdk` with stdio transport. Tool implementations live in `src/tools/`, each exporting a `register(server, client)` function and a testable `handle*` function. Transport is stdio by default; `JCM_TRANSPORT=http` serves MCP Streamable HTTP from `src/http-transport.ts` (one `McpServer` per client session, one shared `AtlassianClient`).
 
 ```
 src/
-├── index.ts              # MCP server init + tool registration + stdio transport
+├── index.ts              # Entry: loadConfig → stdio (default) or HTTP (JCM_TRANSPORT=http) + signal handling
+├── server.ts             # createServer(client): McpServer — registers all tools (one per stdio process / HTTP session)
+├── http-transport.ts     # Streamable HTTP: session map, Host check, idle sweep, close() handle
 ├── config.ts             # Env var loading (ATLASSIAN_URL, EMAIL, TOKEN, CLOUD_ID)
 ├── elicitation.ts        # Write-confirmation gate (JCM_CONFIRM_WRITES env flag + MCP elicitation)
 ├── client.ts             # HTTP client for Jira/Confluence REST APIs (Basic auth)
@@ -76,6 +78,11 @@ Required in `.env` (or shell environment):
 | `ATLASSIAN_TOKEN` | API token from https://id.atlassian.com/manage-profile/security/api-tokens |
 | `ATLASSIAN_CLOUD_ID` | Cloud instance ID (auto-discovered if omitted; get manually from `{siteUrl}/_edge/tenant_info`) |
 | `JCM_CONFIRM_WRITES` | Set to `"true"` to require user confirmation (MCP elicitation) before write operations |
+| `JCM_TRANSPORT` | `http` enables the Streamable HTTP transport; unset/other = stdio (default) |
+| `JCM_HTTP_HOST` | HTTP bind address (default `127.0.0.1`; loopback only, no auth) |
+| `JCM_HTTP_PORT` | HTTP port (default `3000`) |
+| `JCM_HTTP_PATH` | HTTP endpoint path (default `/mcp`) |
+| `JCM_HTTP_IDLE_TIMEOUT_MS` | Idle session timeout in ms (default `1800000`) |
 
 ## Key Design Principles
 
@@ -86,3 +93,4 @@ Required in `.env` (or shell environment):
 - **Markdown input.** Write tools accept markdown-formatted text and convert it to the appropriate format (ADF for Jira, XHTML storage for Confluence) server-side.
 - **Async config.** `loadConfig()` is async — auto-discovers cloudId on startup when not set via env var.
 - **Update this file.** When adding new tools, changing the build system, or altering project structure, update the relevant sections of CLAUDE.md so future sessions stay current.
+- **Per-session servers in HTTP mode.** Never share an `McpServer` across HTTP sessions; always call `createServer(client)` per session so elicitation (`confirmWrite`) and responses stay isolated. New write tools must pass `extra.requestId` through to `confirmWrite`.

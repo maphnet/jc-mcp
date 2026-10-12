@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { RequestId } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Whether write-tool elicitation gating is enabled.
@@ -27,33 +28,40 @@ export interface ConfirmWriteResult {
  * @param server  The McpServer instance (elicitation lives on `server.server`)
  * @param title   Short title shown in the confirmation dialog
  * @param summary Human-readable summary of what will be written
+ * @param relatedRequestId The triggering tools/call request id; under
+ *   Streamable HTTP this sends the prompt on that request's SSE stream
+ *   instead of the optional standalone GET stream (which may not be open)
  */
 export async function confirmWrite(
   server: McpServer,
   title: string,
-  summary: string
+  summary: string,
+  relatedRequestId?: RequestId
 ): Promise<ConfirmWriteResult> {
   if (!isConfirmWritesEnabled()) {
     return { confirmed: true };
   }
 
   try {
-    const result = await server.server.elicitInput({
-      mode: "form",
-      message: `${title}\n\n${summary}`,
-      requestedSchema: {
-        type: "object",
-        properties: {
-          confirm: {
-            type: "boolean",
-            title: "Confirm",
-            description: "Approve this write operation?",
-            default: false,
+    const result = await server.server.elicitInput(
+      {
+        mode: "form",
+        message: `${title}\n\n${summary}`,
+        requestedSchema: {
+          type: "object",
+          properties: {
+            confirm: {
+              type: "boolean",
+              title: "Confirm",
+              description: "Approve this write operation?",
+              default: false,
+            },
           },
+          required: ["confirm"],
         },
-        required: ["confirm"],
       },
-    });
+      { relatedRequestId }
+    );
 
     if (result.action === "accept" && result.content?.confirm === true) {
       return { confirmed: true };
