@@ -255,3 +255,62 @@ describe("startHttpServer elicitation routing", () => {
     expect((await callJson(b.client, "jcm_getIssue", { issueKey: "BBB-2" })).key).toBe("BBB-2");
   });
 });
+
+describe("startHttpServer session lifecycle", () => {
+  it("removes a session on DELETE and 404s its stale id", async () => {
+    const h = await start(fakeClient().client);
+    const { transport } = await connect(h);
+    const id = transport.sessionId!;
+
+    await transport.terminateSession();
+
+    expect(h.sessionCount()).toBe(0);
+    const res = await raw(h.port, { method: "POST", headers: { "mcp-session-id": id }, body: PING });
+    expect(res.status).toBe(404);
+  });
+
+  it("sweeps a client that vanished without DELETE after the idle timeout", async () => {
+    const h = await start(fakeClient().client, 50);
+    const { client, transport } = await connect(h);
+    const id = transport.sessionId!;
+
+    await client.close(); // drops connections, sends no DELETE (simulates a crash)
+    await sleep(300);
+
+    expect(h.sessionCount()).toBe(0);
+    const res = await raw(h.port, { method: "POST", headers: { "mcp-session-id": id }, body: PING });
+    expect(res.status).toBe(404);
+  });
+
+  it("does not sweep a connected client holding an open SSE stream", async () => {
+    const h = await start(fakeClient().client, 200);
+    const { client } = await connect(h);
+
+    await sleep(600);
+
+    expect(h.sessionCount()).toBe(1);
+    expect((await callJson(client, "jcm_getIssue", { issueKey: "AAA-9" })).key).toBe("AAA-9");
+  });
+
+  it("does not leak sessions across repeated connect/disconnect cycles", async () => {
+    const h = await start(fakeClient().client);
+    for (let i = 0; i < 25; i++) {
+      const { client, transport } = await connect(h);
+      await transport.terminateSession();
+      await client.close();
+    }
+    expect(h.sessionCount()).toBe(0);
+  });
+
+  it("close() shuts down all sessions and stops listening", async () => {
+    const h = await start(fakeClient().client);
+    await connect(h);
+    await connect(h);
+    expect(h.sessionCount()).toBe(2);
+
+    await h.close();
+
+    expect(h.sessionCount()).toBe(0);
+    await expect(raw(h.port, { method: "POST", body: PING })).rejects.toThrow();
+  });
+});
