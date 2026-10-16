@@ -8,6 +8,22 @@ export interface LeanIssue {
   assignee: string | null;
   labels: string[];
   comments: LeanComment[];
+  attachments: LeanAttachment[];
+}
+
+export interface LeanAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+}
+
+export interface AttachmentDownloadLink {
+  attachmentId: string;
+  filename: string;
+  url: string;
+  temporary: true;
 }
 
 export interface LeanComment {

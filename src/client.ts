@@ -1,4 +1,5 @@
 import type { Config } from "./config.js";
+import type { AttachmentDownloadLink } from "./types.js";
 
 export class AtlassianClient {
   private baseUrl: string;
@@ -13,6 +14,80 @@ export class AtlassianClient {
 
   getSiteUrl(): string {
     return this.baseUrl;
+  }
+
+  async jiraGetAttachmentDownloadLink(attachmentId: string): Promise<AttachmentDownloadLink> {
+    if (!/^[0-9]+$/.test(attachmentId)) {
+      throw new Error("Attachment ID must contain only digits.");
+    }
+
+    const metadata = await this.attachmentGet(`/rest/api/3/attachment/${attachmentId}`, "application/json");
+    if (metadata.status !== 200 || !metadata.headers.get("content-type")?.includes("application/json")) {
+      await metadata.body?.cancel();
+      throw new Error("Jira returned an unexpected attachment metadata response.");
+    }
+    let filename: unknown;
+    try {
+      filename = ((await metadata.json()) as { filename?: unknown }).filename;
+    } catch {
+      throw new Error("Jira returned invalid attachment metadata.");
+    }
+    if (typeof filename !== "string" || !filename) {
+      throw new Error("Jira returned attachment metadata without a filename.");
+    }
+
+    const response = await this.attachmentGet(
+      `/rest/api/3/attachment/content/${attachmentId}`,
+      "*/*"
+    );
+    const location = response.headers.get("location");
+    await response.body?.cancel();
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      throw new Error("Jira did not provide a temporary download redirect (it may have returned file bytes directly).");
+    }
+
+    let url: URL;
+    try {
+      url = new URL(location ?? "");
+    } catch {
+      throw new Error("Jira returned a missing or invalid attachment download redirect.");
+    }
+    // Only the independently verified Atlassian media endpoint is supported.
+    // Never follow this URL on the server or forward Jira credentials to it.
+    if (
+      url.protocol !== "https:" || url.hostname !== "api.media.atlassian.com" ||
+      url.port !== "" || url.username || url.password || url.hash ||
+      !/^\/file\/[A-Za-z0-9-]+\/binary$/.test(url.pathname) ||
+      !url.searchParams.get("token")
+    ) {
+      throw new Error("Jira returned an unsupported attachment download destination.");
+    }
+
+    return { attachmentId, filename, url: url.href, temporary: true };
+  }
+
+  private async attachmentGet(path: string, accept: string): Promise<Response> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        method: "GET",
+        headers: { Authorization: this.authHeader, Accept: accept },
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      // Network errors can contain URLs. Do not expose credentials or signed links.
+      throw new Error("Could not request the Jira attachment; check connectivity and retry.");
+    }
+    if (response.status >= 400) {
+      await response.body?.cancel();
+      const reason = response.status === 401 ? "authentication failed"
+        : response.status === 403 ? "permission denied"
+        : response.status === 404 ? "not found or not accessible"
+        : "request failed";
+      throw new Error(`Jira attachment ${reason} (HTTP ${response.status}).`);
+    }
+    return response;
   }
 
   async jiraGet<T>(

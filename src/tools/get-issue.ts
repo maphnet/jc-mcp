@@ -13,6 +13,7 @@ const ISSUE_FIELDS = [
   "assignee",
   "labels",
   "comment",
+  "attachment",
 ].join(",");
 
 const inputSchema = z.object({
@@ -52,6 +53,13 @@ export async function handleGetIssue(
     assignee: fields.assignee?.displayName ?? null,
     labels: fields.labels ?? [],
     comments,
+    attachments: (fields.attachment ?? []).map((attachment: any) => ({
+      id: attachment.id,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      content: attachment.content,
+    })),
   };
 
   return JSON.stringify(lean);
@@ -63,7 +71,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issue",
       description:
-        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, labels, comments.",
+        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, labels, comments, attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
