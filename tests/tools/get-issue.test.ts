@@ -103,10 +103,49 @@ describe("jcm_getIssue", () => {
     expect(parsed.comments).toHaveLength(1);
     expect(parsed.comments[0].author).toBe("Bob Smith");
     expect(parsed.comments[0].body).toBe("Looking into this now.");
+    expect(parsed.attachments).toEqual([]);
 
     // Verify bloat fields are NOT present
     expect(parsed.expand).toBeUndefined();
     expect(parsed.self).toBeUndefined();
     expect(parsed.fields).toBeUndefined();
+  });
+
+  it("selects and maps lean attachment metadata without resolving download links", async () => {
+    const attachment = {
+      id: "10001",
+      filename: "report.pdf",
+      mimeType: "application/pdf",
+      size: 1234,
+      content: "https://test.atlassian.net/rest/api/3/attachment/content/10001",
+    };
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...jiraIssueResponse,
+        fields: {
+          ...jiraIssueResponse.fields,
+          attachment: [{ ...attachment, author: { displayName: "Jane Doe" }, thumbnail: "https://example.com/thumb" }],
+        },
+      }),
+    });
+
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const parsed = JSON.parse(await handleGetIssue(client, { issueKey: "TEST-1" }));
+
+    expect(parsed.attachments).toEqual([attachment]);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const url = new URL(fetchSpy.mock.calls[0][0]);
+    expect(url.searchParams.get("fields")?.split(",")).toContain("attachment");
+  });
+
+  it("returns an empty attachments collection when Jira returns an empty array", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ fields: { attachment: [] } }),
+    });
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const parsed = JSON.parse(await handleGetIssue(client, { issueKey: "TEST-1" }));
+    expect(parsed.attachments).toEqual([]);
   });
 });

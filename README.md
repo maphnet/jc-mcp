@@ -46,7 +46,8 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 
 | Tool | Description | Returns |
 |------|-------------|---------|
-| `jcm_getIssue` | Read a Jira issue | Flat fields + markdown description |
+| `jcm_getIssue` | Read a Jira issue | Flat fields + markdown description + attachments |
+| `jcm_getAttachmentDownloadLink` | Resolve a temporary attachment download URL on demand | `{attachmentId, filename, url, temporary: true}` |
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
 | `jcm_editIssue` | Update issue fields | `{ok, key}` |
 | `jcm_transitionIssue` | Change workflow state | `{ok, key}` |
@@ -69,6 +70,20 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_searchArticles` | CQL search | `[{id, title, space, spaceKey, lastModified}]` |
 
 To create a page next to an existing one, pass its `spaceId` (and `parentId`) from jcm_getArticle to jcm_createArticle. Otherwise resolve a space key (e.g. `spaceKey` from jcm_searchArticles) via jcm_lookupSpace. Space names are not unique — don't use them to pick a space.
+
+### Jira attachments
+
+Call `jcm_getIssue` to discover `attachments`: `[{id, filename, mimeType, size, content}]` (an empty array when none exist). `content` is Jira's authenticated content URL; issue reads do not resolve temporary links.
+
+Pass the selected `id` to `jcm_getAttachmentDownloadLink` as `attachmentId`. The server uses its existing Jira credentials and returns a temporary URL plus the filename. Its Jira account needs permission to view the issue and attachment, including applicable issue security restrictions. Download the URL with a local HTTP client **without** a Jira Authorization header; file bytes stay outside the model context. For example, in a shell, after assigning the returned values to `download_url` and a local `output_path`:
+
+```bash
+curl --fail --location --proto '=https' --proto-redir '=https' --output "$output_path" "$download_url"
+```
+
+Treat the returned URL as a secret: anyone holding it may be able to download the file. Avoid public logs and tickets. URLs expire; call the tool again to obtain a fresh one. No fixed lifetime or permanent public access is promised.
+
+The resolver supports HTTPS redirects to `api.media.atlassian.com/file/{id}/binary`. Missing or unsupported redirects, direct file responses, and authentication/permission/not-found failures produce errors. It does not host or proxy attachments. A live private Jira Cloud check on 2026-10-16 observed a `303` redirect; downloading its URL without Jira credentials matched the authenticated file byte for byte. One token carried an expiry about ten minutes after the request; that observation is not a lifetime guarantee.
 
 ## Why This Server?
 

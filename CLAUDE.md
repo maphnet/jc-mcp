@@ -44,8 +44,9 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (20 tools total)
+└── tools/                # One file per MCP tool (22 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
+    ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
     ├── transition-issue.ts# Priority 1: Workflow state change
@@ -88,6 +89,7 @@ Required in `.env` (or shell environment):
 
 - **Token efficiency is the primary design goal.** Every tool response should return only the fields an LLM needs to reason and act — strip verbose HTML, redundant metadata, and deeply nested structures by default.
 - **Flat responses.** Nested Atlassian objects are flattened: `status: "In Progress"` not `status: {name: "In Progress", statusCategory: {...}}`.
+- **Attachments.** Issue reads include lean attachment metadata. Download URLs resolve only on demand using numeric IDs and manual redirects; credentials stay on Jira, and only the verified HTTPS Atlassian media endpoint is supported. Never log signed URLs or assume a fixed expiry.
 - **No re-fetch after writes.** Write operations return minimal confirmations like `{ok: true, key: "PROJ-1"}`.
 - **ADF conversion.** Jira descriptions (Atlassian Document Format) are converted to markdown server-side.
 - **Markdown input.** Write tools accept markdown-formatted text and convert it to the appropriate format (ADF for Jira, XHTML storage for Confluence) server-side.
