@@ -26,15 +26,15 @@ export class AtlassianClient {
   async toJqlDate(iso: string): Promise<string | null> {
     const date = new Date(iso);
     if (!iso || Number.isNaN(date.getTime())) return null;
+    // Cache the promise (set synchronously) so concurrent callers share one request.
+    const tz = (this.tz ??= this.jiraGet<{ timeZone?: string }>("/rest/api/3/myself").then((u) => {
+      if (!u.timeZone) throw new Error("No timeZone on /myself");
+      return u.timeZone;
+    }));
     try {
-      // Cache the promise (set synchronously) so concurrent callers share one request.
-      this.tz ??= this.jiraGet<{ timeZone?: string }>("/rest/api/3/myself").then((u) => {
-        if (!u.timeZone) throw new Error("No timeZone on /myself");
-        return u.timeZone;
-      });
       const parts = Object.fromEntries(
         new Intl.DateTimeFormat("en-CA", {
-          timeZone: await this.tz,
+          timeZone: await tz,
           year: "numeric",
           month: "2-digit",
           day: "2-digit",
@@ -47,7 +47,7 @@ export class AtlassianClient {
       );
       return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
     } catch {
-      this.tz = undefined;
+      if (this.tz === tz) this.tz = undefined;
       return null;
     }
   }

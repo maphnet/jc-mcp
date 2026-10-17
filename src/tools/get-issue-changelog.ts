@@ -56,6 +56,7 @@ export async function handleGetIssueChangelog(
   const max = params.maxResults ?? 20;
   const entries: LeanChangelogEntry[] = [];
 
+  // ponytail: always scans from startAt=0 (the endpoint has no time filter or reverse order); fine until issues carry thousands of changes.
   for (let startAt = 0; ; ) {
     const page = await client.jiraGet<RawChangelogPage>(
       `/rest/api/3/issue/${params.issueKey}/changelog`,
@@ -64,7 +65,10 @@ export async function handleGetIssueChangelog(
     const values = page.values ?? [];
     for (const v of values) {
       if (sinceMs !== null && Date.parse(v.created) <= sinceMs) continue;
-      if (entries.length === max) return JSON.stringify({ entries, truncated: true });
+      // Never cut inside a group sharing one `created`, or a strict `since` resume would skip the rest.
+      if (entries.length >= max && Date.parse(v.created) !== Date.parse(entries[entries.length - 1].created)) {
+        return JSON.stringify({ entries, truncated: true });
+      }
       entries.push(toEntry(v));
     }
     startAt += values.length;
@@ -83,7 +87,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issue Changelog",
       description:
-        "Get a Jira issue's field-change history, oldest first. Returns {entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}. `since` keeps entries created strictly after it. Capped at maxResults oldest matches; if truncated, call again with since = last returned created.",
+        "Get a Jira issue's field-change history, oldest first. Returns {entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}. `since` keeps entries created strictly after it. Capped at maxResults oldest matches (entries sharing the last timestamp stay together); if truncated, call again with since = last returned created.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

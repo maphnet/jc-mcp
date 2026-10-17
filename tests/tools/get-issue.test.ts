@@ -219,6 +219,17 @@ describe("jcm_getIssue", () => {
     expect(myselfCalls()).toBe(1);
   });
 
+  it("formats local midnight as 00, not 24", async () => {
+    routeFetch(
+      { key: "TEST-1", fields: { updated: "2026-08-10T22:05:00.000+0000" } },
+      () => ({ ok: true, json: async () => ({ timeZone: "Europe/Berlin" }) })
+    );
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const parsed = JSON.parse(await handleGetIssue(client, { issueKey: "TEST-1" }));
+
+    expect(parsed.updatedJql).toBe("2026-08-11 00:05");
+  });
+
   it("returns updatedJql null when /myself fails, and retries on the next call", async () => {
     const myself = vi
       .fn()

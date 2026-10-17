@@ -136,6 +136,25 @@ describe("jcm_getIssueChangelog", () => {
     expect(parsed.truncated).toBe(true);
   });
 
+  it("does not truncate between entries sharing the same created", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      page(
+        [
+          entry("1", "2026-08-10T10:00:00.000Z"),
+          entry("2", "2026-08-10T11:00:00.000+0000"),
+          entry("3", "2026-08-10T11:00:00.000Z"),
+          entry("4", "2026-08-10T12:00:00.000Z"),
+        ],
+        { isLast: true }
+      )
+    );
+
+    const parsed = JSON.parse(await handleGetIssueChangelog(client, { issueKey: "TEST-1", maxResults: 2 }));
+
+    expect(parsed.entries.map((e: any) => e.id)).toEqual(["1", "2", "3"]);
+    expect(parsed.truncated).toBe(true);
+  });
+
   it("rejects an unparseable since before any request", async () => {
     await expect(
       handleGetIssueChangelog(client, { issueKey: "TEST-1", since: "yesterday" })
