@@ -4,6 +4,7 @@ import type { AttachmentDownloadLink } from "./types.js";
 export class AtlassianClient {
   private baseUrl: string;
   private authHeader: string;
+  private tz?: Promise<string>;
 
   constructor(config: Config) {
     this.baseUrl = config.siteUrl;
@@ -14,6 +15,41 @@ export class AtlassianClient {
 
   getSiteUrl(): string {
     return this.baseUrl;
+  }
+
+  /**
+   * Formats an ISO timestamp as a JQL date ("yyyy-MM-dd HH:mm") in the
+   * authenticated user's profile timezone, which is how JQL interprets dates.
+   * Floored to the minute, so `updated > "<value>"` is at-least-once.
+   * Returns null instead of throwing; a failed /myself lookup is not cached.
+   */
+  async toJqlDate(iso: string): Promise<string | null> {
+    const date = new Date(iso);
+    if (!iso || Number.isNaN(date.getTime())) return null;
+    try {
+      // Cache the promise (set synchronously) so concurrent callers share one request.
+      this.tz ??= this.jiraGet<{ timeZone?: string }>("/rest/api/3/myself").then((u) => {
+        if (!u.timeZone) throw new Error("No timeZone on /myself");
+        return u.timeZone;
+      });
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: await this.tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .formatToParts(date)
+          .map((p) => [p.type, p.value])
+      );
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+    } catch {
+      this.tz = undefined;
+      return null;
+    }
   }
 
   async jiraGetAttachmentDownloadLink(attachmentId: string): Promise<AttachmentDownloadLink> {
