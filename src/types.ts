@@ -37,6 +37,14 @@ export interface LeanComment {
   updated: string;
 }
 
+export interface LeanChangelogEntry {
+  id: string;
+  authorAccountId: string | null;
+  author: string;
+  created: string;
+  items: { field: string; from: string | null; to: string | null }[];
+}
+
 export interface LeanTransition {
   id: string;
   name: string;

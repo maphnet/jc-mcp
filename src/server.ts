@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AtlassianClient } from "./client.js";
 import { register as registerGetIssue } from "./tools/get-issue.js";
+import { register as registerGetIssueChangelog } from "./tools/get-issue-changelog.js";
 import { register as registerGetAttachmentDownloadLink } from "./tools/get-attachment-download-link.js";
 import { register as registerGetTransitions } from "./tools/get-transitions.js";
 import { register as registerEditIssue } from "./tools/edit-issue.js";
@@ -27,7 +28,7 @@ import { register as registerGetIssueLinks } from "./tools/get-issue-links.js";
  * Builds a fresh McpServer with every jc-mcp tool bound to `client`.
  * stdio calls this once; HTTP mode calls it once per client session so
  * each session gets its own McpServer (and therefore its own elicitation
- * channel) while sharing the stateless AtlassianClient.
+ * channel) while sharing one AtlassianClient (credentials + cached profile timezone).
  */
 export function createServer(client: AtlassianClient): McpServer {
   const server = new McpServer({
@@ -37,6 +38,7 @@ export function createServer(client: AtlassianClient): McpServer {
 
   // Priority 1 tools
   registerGetIssue(server, client);
+  registerGetIssueChangelog(server, client);
   registerGetAttachmentDownloadLink(server, client);
   registerGetTransitions(server, client);
   registerEditIssue(server, client);
