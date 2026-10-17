@@ -6,12 +6,14 @@ import type { LeanChangelogEntry } from "../types.js";
 // Endpoint default and max; the scan is oldest-first, so big pages mean fewer requests.
 const PAGE_SIZE = "100";
 
+const SINCE_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
+
 const inputSchema = z.object({
   issueKey: z.string().regex(/^[A-Z][A-Z0-9_]+-\d+$/).describe("Jira issue key, e.g. PROJ-123"),
   since: z
     .string()
     .optional()
-    .describe("ISO-8601 timestamp; only entries created strictly after it (e.g. the last returned `created`)"),
+    .describe("ISO-8601 date-time with a timezone (Z or offset such as +03:00); only entries created strictly after it (e.g. the last returned `created`)"),
   maxResults: z
     .number()
     .int()
@@ -49,9 +51,17 @@ export async function handleGetIssueChangelog(
   client: AtlassianClient,
   params: Input
 ): Promise<string> {
-  const sinceMs = params.since === undefined ? null : Date.parse(params.since);
+  // Require an explicit offset: Date.parse reads offset-less values as server-local time.
+  const sinceMs =
+    params.since === undefined
+      ? null
+      : SINCE_WITH_OFFSET.test(params.since)
+        ? Date.parse(params.since)
+        : NaN;
   if (Number.isNaN(sinceMs)) {
-    throw new Error("Invalid 'since': expected ISO-8601 timestamp, e.g. 2026-08-10T14:30:00Z");
+    throw new Error(
+      "Invalid 'since': expected ISO-8601 date-time with Z or a UTC offset, e.g. 2026-08-10T14:30:00Z or 2026-08-10T14:30:00+03:00"
+    );
   }
   const max = params.maxResults ?? 20;
   const entries: LeanChangelogEntry[] = [];

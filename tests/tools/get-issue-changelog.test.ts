@@ -161,4 +161,9 @@ describe("jcm_getIssueChangelog", () => {
     ).rejects.toThrow("Invalid 'since'");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it.each(["2026-08-10T14:30:00", "2026-08-10"])("rejects since without a timezone offset (%s)", async (since) => {
+    await expect(handleGetIssueChangelog(client, { issueKey: "TEST-1", since })).rejects.toThrow("Invalid 'since'");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

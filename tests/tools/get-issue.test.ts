@@ -219,6 +219,21 @@ describe("jcm_getIssue", () => {
     expect(myselfCalls()).toBe(1);
   });
 
+  it("re-reads the profile timezone after 1 hour", async () => {
+    routeFetch(watchedIssue, () => ({ ok: true, json: async () => ({ timeZone: "America/New_York" }) }));
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const realNow = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(realNow);
+    try {
+      await handleGetIssue(client, { issueKey: "TEST-1" });
+      now.mockReturnValue(realNow + 3_600_001);
+      await handleGetIssue(client, { issueKey: "TEST-1" });
+      expect(myselfCalls()).toBe(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it("formats local midnight as 00, not 24", async () => {
     routeFetch(
       { key: "TEST-1", fields: { updated: "2026-08-10T22:05:00.000+0000" } },

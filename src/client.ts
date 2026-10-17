@@ -1,10 +1,13 @@
 import type { Config } from "./config.js";
 import type { AttachmentDownloadLink } from "./types.js";
 
+const TZ_TTL_MS = 3_600_000;
+
 export class AtlassianClient {
   private baseUrl: string;
   private authHeader: string;
   private tz?: Promise<string>;
+  private tzExpires = 0;
 
   constructor(config: Config) {
     this.baseUrl = config.siteUrl;
@@ -22,15 +25,20 @@ export class AtlassianClient {
    * authenticated user's profile timezone, which is how JQL interprets dates.
    * Floored to the minute, so `updated > "<value>"` is at-least-once.
    * Returns null instead of throwing; a failed /myself lookup is not cached.
+   * The timezone is cached for 1h; during the DST-end repeated hour the result may resolve to the later instant.
    */
   async toJqlDate(iso: string): Promise<string | null> {
     const date = new Date(iso);
     if (!iso || Number.isNaN(date.getTime())) return null;
     // Cache the promise (set synchronously) so concurrent callers share one request.
-    const tz = (this.tz ??= this.jiraGet<{ timeZone?: string }>("/rest/api/3/myself").then((u) => {
-      if (!u.timeZone) throw new Error("No timeZone on /myself");
-      return u.timeZone;
-    }));
+    if (!this.tz || Date.now() >= this.tzExpires) {
+      this.tzExpires = Date.now() + TZ_TTL_MS;
+      this.tz = this.jiraGet<{ timeZone?: string }>("/rest/api/3/myself").then((u) => {
+        if (!u.timeZone) throw new Error("No timeZone on /myself");
+        return u.timeZone;
+      });
+    }
+    const tz = this.tz;
     try {
       const parts = Object.fromEntries(
         new Intl.DateTimeFormat("en-CA", {
