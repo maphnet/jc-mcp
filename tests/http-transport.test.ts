@@ -21,6 +21,7 @@ function fakeClient() {
       return { key, fields: { summary: `summary of ${key}` } };
     },
     jiraPut,
+    toJqlDate: async () => null,
   } as unknown as AtlassianClient;
   return { client, jiraPut };
 }

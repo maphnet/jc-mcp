@@ -112,7 +112,8 @@ function sendError(res: ServerResponse, status: number, code: number, message: s
 /**
  * Starts a Streamable HTTP MCP endpoint. Each client session gets its own
  * McpServer + transport (so elicitation and responses stay per-session);
- * all sessions share the one stateless AtlassianClient.
+ * all sessions share the one AtlassianClient (same credentials; its only
+ * state is the memoized profile timezone).
  */
 export async function startHttpServer(
   client: AtlassianClient,

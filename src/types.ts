@@ -7,6 +7,8 @@ export interface LeanIssue {
   priority: string;
   assignee: string | null;
   labels: string[];
+  updated: string;
+  updatedJql: string | null;
   comments: LeanComment[];
   attachments: LeanAttachment[];
 }
@@ -27,9 +29,20 @@ export interface AttachmentDownloadLink {
 }
 
 export interface LeanComment {
+  id: string;
   author: string;
+  authorAccountId: string | null;
   body: string;
   created: string;
+  updated: string;
+}
+
+export interface LeanChangelogEntry {
+  id: string;
+  authorAccountId: string | null;
+  author: string;
+  created: string;
+  items: { field: string; from: string | null; to: string | null }[];
 }
 
 export interface LeanTransition {
@@ -42,6 +55,8 @@ export interface LeanSearchResult {
   summary: string;
   status: string;
   assignee: string | null;
+  updated: string;
+  updatedJql: string | null;
 }
 
 export interface LeanArticle {

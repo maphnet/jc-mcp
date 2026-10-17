@@ -44,8 +44,9 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (22 tools total)
+└── tools/                # One file per MCP tool (23 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
+    ├── get-issue-changelog.ts # Field-change history, oldest first, `since` filter + paging ({entries, truncated})
     ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
@@ -63,6 +64,7 @@ src/
     ├── remove-issue-link.ts # Issue links: delete link ({ok, linkId})
     ├── get-issue-links.ts# Issue links: list links ([{id, type, inwardIssue?, outwardIssue?}])
     ├── get-article.ts    # Priority 3: Confluence page read
+    ├── lookup-space.ts   # Priority 3: Confluence space key → numeric ID ({id, key, name})
     ├── create-article.ts # Priority 3: Confluence page creation
     ├── update-article.ts # Priority 3: Confluence page update
     └── search-articles.ts# Priority 3: Confluence CQL search
@@ -96,3 +98,4 @@ Required in `.env` (or shell environment):
 - **Async config.** `loadConfig()` is async — auto-discovers cloudId on startup when not set via env var.
 - **Update this file.** When adding new tools, changing the build system, or altering project structure, update the relevant sections of CLAUDE.md so future sessions stay current.
 - **Per-session servers in HTTP mode.** Never share an `McpServer` across HTTP sessions; always call `createServer(client)` per session so elicitation (`confirmWrite`) and responses stay isolated. New write tools must pass `extra.requestId` through to `confirmWrite`.
+- **Polling cursors.** `updated`/`updatedJql` on issue reads come from `AtlassianClient.toJqlDate` (`/myself` timeZone memoized for 1h, minute floor, `null` on failure and not cached). Never let a convenience field fail a core read. Consumers dedupe because JQL minute granularity makes matching at-least-once. Caveat: during the DST-end repeated hour two instants share a local minute and JQL may resolve to the later one, so consumers should use a 1h lookback then.

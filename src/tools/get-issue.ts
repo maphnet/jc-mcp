@@ -12,6 +12,7 @@ const ISSUE_FIELDS = [
   "priority",
   "assignee",
   "labels",
+  "updated",
   "comment",
   "attachment",
 ].join(",");
@@ -36,10 +37,15 @@ export async function handleGetIssue(
   const comments: LeanComment[] = (
     fields.comment?.comments ?? []
   ).map((c: any) => ({
+    id: c.id,
     author: c.author?.displayName ?? "Unknown",
+    authorAccountId: c.author?.accountId ?? null,
     body: c.body ? adfToMarkdown(c.body) : "",
     created: c.created ?? "",
+    updated: c.updated ?? "",
   }));
+
+  const updated: string = fields.updated ?? "";
 
   const lean: LeanIssue = {
     key: raw.key,
@@ -52,6 +58,8 @@ export async function handleGetIssue(
     priority: fields.priority?.name ?? "",
     assignee: fields.assignee?.displayName ?? null,
     labels: fields.labels ?? [],
+    updated,
+    updatedJql: await client.toJqlDate(updated),
     comments,
     attachments: (fields.attachment ?? []).map((attachment: any) => ({
       id: attachment.id,
@@ -71,7 +79,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issue",
       description:
-        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, labels, comments, attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
+        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, labels, updated (ISO), updatedJql (updated floored to the minute in your Jira timezone, for JQL `updated > \"...\"` polling; at-least-once, dedupe; null if unavailable), comments (id, author, authorAccountId, body, created, updated), attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -46,14 +46,15 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 
 | Tool | Description | Returns |
 |------|-------------|---------|
-| `jcm_getIssue` | Read a Jira issue | Flat fields + markdown description + attachments |
+| `jcm_getIssue` | Read a Jira issue | Flat fields + markdown description + attachments + `updated`/`updatedJql`; comments carry `id`, `authorAccountId`, `updated` |
+| `jcm_getIssueChangelog` | Field-change history, oldest first, optionally after `since` | `{entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}` |
 | `jcm_getAttachmentDownloadLink` | Resolve a temporary attachment download URL on demand | `{attachmentId, filename, url, temporary: true}` |
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
 | `jcm_editIssue` | Update issue fields | `{ok, key}` |
 | `jcm_transitionIssue` | Change workflow state | `{ok, key}` |
 | `jcm_createIssue` | Create a new issue | `{key, url}` |
 | `jcm_addComment` | Add a comment (plain text) | `{ok, id}` |
-| `jcm_searchIssues` | JQL search | `[{key, summary, status, assignee}]` |
+| `jcm_searchIssues` | JQL search | `{total, issues: [{key, summary, status, assignee, updated, updatedJql}]}` |
 | `jcm_getCurrentUser` | Get the authenticated user | `{accountId, displayName, email, active}` |
 | `jcm_lookupUser` | Find a user by email | `[{accountId, displayName, email, active}]` |
 | `jcm_createVersion` | Create a release version | `{id, name}` |
@@ -85,6 +86,12 @@ Treat the returned URL as a secret: anyone holding it may be able to download th
 
 The resolver supports HTTPS redirects to `api.media.atlassian.com/file/{id}/binary`. Missing or unsupported redirects, direct file responses, and authentication/permission/not-found failures produce errors. It does not host or proxy attachments. A live private Jira Cloud check on 2026-10-16 observed a `303` redirect; downloading its URL without Jira credentials matched the authenticated file byte for byte. One token carried an expiry about ten minutes after the request; that observation is not a lifetime guarantee.
 
+### Watching a ticket
+
+Poll with `jcm_searchIssues` using `key = PROJ-1 AND updated > "<updatedJql>"`, where `updatedJql` comes from the previous `jcm_getIssue` or `jcm_searchIssues` result. It is the issue's `updated` time floored to the minute in the Jira user's profile timezone, which is the timezone JQL uses. It is `null` if the timezone lookup failed (retry later). Because of the minute floor, the query re-matches the issue itself and anything changed within that minute. Matching is at-least-once, so compare raw `updated` values or dedupe by id. The profile timezone is re-read hourly. The no-miss guarantee does not hold during the repeated hour when daylight saving ends: two instants format to the same local minute and JQL may resolve it to the later one. During that hour, also compare raw `updated` values, or use a lookback of one hour.
+
+On a match, read new comments with `jcm_getIssue`. Filter them by comment `id`, `created`, or `updated`, and skip your own using `authorAccountId` from `jcm_getCurrentUser`. Read field changes with `jcm_getIssueChangelog(issueKey, since)`. Entries are returned oldest first, and `since` is strict (`created > since`). When `truncated` is true, call again with `since` set to the last returned `created`.
+
 ## Why This Server?
 
 Standard Atlassian MCP servers return raw API responses — deeply nested JSON with metadata LLM agents don't need. jc-mcp flattens and trims every response, cutting **~92% of tokens** across typical operations:
@@ -96,7 +103,7 @@ Standard Atlassian MCP servers return raw API responses — deeply nested JSON w
 | Get transitions | ~17 tokens | ~313 tokens | **95%** |
 
 - **Flat fields**: `status: "In Progress"` instead of nested `status.name` + `statusCategory` + `self` links + `iconUrl`
-- **Lean search results**: `{key, summary, status, assignee}` per issue — no descriptions, avatars, or project metadata
+- **Lean search results**: `{key, summary, status, assignee, updated, updatedJql}` per issue — no descriptions, avatars, or project metadata
 - **Minimal writes**: `{ok: true, key: "PROJ-1"}` — no re-fetch
 
 Less tokens = faster responses, lower cost, more room in the context window.
