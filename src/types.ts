@@ -47,6 +47,8 @@ export interface LeanSearchResult {
   summary: string;
   status: string;
   assignee: string | null;
+  updated: string;
+  updatedJql: string | null;
 }
 
 export interface LeanArticle {

@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import type { LeanSearchResult } from "../types.js";
 
-const SEARCH_FIELDS = "summary,status,assignee";
+const SEARCH_FIELDS = "summary,status,assignee,updated";
 
 const inputSchema = z.object({
   jql: z.string().describe("JQL query string"),
@@ -34,12 +34,20 @@ export async function handleSearchIssues(
     total: number;
   }>("/rest/api/3/search/jql", queryParams);
 
-  const issues: LeanSearchResult[] = (raw.issues ?? []).map((issue: any) => ({
-    key: issue.key,
-    summary: issue.fields?.summary ?? "",
-    status: issue.fields?.status?.name ?? "",
-    assignee: issue.fields?.assignee?.displayName ?? null,
-  }));
+  // toJqlDate caches the /myself promise synchronously, so this is one lookup.
+  const issues: LeanSearchResult[] = await Promise.all(
+    (raw.issues ?? []).map(async (issue: any) => {
+      const updated: string = issue.fields?.updated ?? "";
+      return {
+        key: issue.key,
+        summary: issue.fields?.summary ?? "",
+        status: issue.fields?.status?.name ?? "",
+        assignee: issue.fields?.assignee?.displayName ?? null,
+        updated,
+        updatedJql: await client.toJqlDate(updated),
+      };
+    })
+  );
 
   return JSON.stringify({ total: raw.total, issues });
 }
@@ -50,7 +58,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Search Jira Issues",
       description:
-        "Search Jira issues using JQL. Returns lean results: [{key, summary, status, assignee}].",
+        "Search Jira issues using JQL. Returns {total, issues: [{key, summary, status, assignee, updated, updatedJql}]}. updatedJql is the issue's updated time floored to the minute in your Jira timezone; poll with `key = X AND updated > \"<updatedJql>\"` (at-least-once, dedupe).",
       inputSchema,
       annotations: {
         readOnlyHint: true,
