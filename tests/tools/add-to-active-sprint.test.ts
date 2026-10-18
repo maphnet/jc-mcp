@@ -31,6 +31,7 @@ describe("jcm_addToActiveSprint", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("skips when the issue is already in an active sprint", async () => {
@@ -130,7 +131,6 @@ describe("jcm_addToActiveSprint", () => {
       await handleAddToActiveSprint(client, { issueKey: "TEST-1", boardId: 9 }, server as never)
     );
 
-    vi.unstubAllEnvs();
     expect(result).toMatchObject({ ok: false, key: "TEST-1" });
     expect(server.server.elicitInput).toHaveBeenCalledTimes(1);
     expect(posts()).toHaveLength(0);

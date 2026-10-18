@@ -101,7 +101,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Add Issue to Active Sprint",
       description:
-        "Add a Jira issue to its project's active scrum sprint. No-op if the issue is already in an active sprint or the project has no scrum board. If several scrum boards or active sprints exist, returns {ok:false, reason, candidates:[{id,name}]}; retry with boardId. Returns {ok, key, sprintId, sprintName, boardId} or {ok, skipped}.",
+        "Add a Jira issue to its project's active scrum sprint. No-op if the issue is already in an active sprint or the project has no scrum board. If the board or sprint is ambiguous, returns {ok:false, reason, candidates:[{id,name}]}: for reason multiple-scrum-boards retry with boardId; no-active-sprint and multiple-active-sprints need manual handling in Jira. Returns {ok, key, sprintId, sprintName, boardId} or {ok, skipped}.",
       inputSchema,
       annotations: {
         readOnlyHint: false,

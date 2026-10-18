@@ -52,7 +52,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
 | `jcm_editIssue` | Update issue fields | `{ok, key}` |
 | `jcm_transitionIssue` | Change workflow state | `{ok, key}` |
-| `jcm_addToActiveSprint` | Add an issue to its project's active scrum sprint (no-op if already in one or no scrum board; returns candidates if ambiguous) | `{ok, key, sprintId, sprintName, boardId}` or `{ok, skipped}` / `{ok: false, reason, candidates}` |
+| `jcm_addToActiveSprint` | Add an issue to its project's active scrum sprint (no-op if already in one or no scrum board; returns candidates if ambiguous; pass `boardId` when several scrum boards exist) | `{ok, key, sprintId, sprintName, boardId}` or `{ok, skipped}` / `{ok: false, reason, candidates}` |
 | `jcm_createIssue` | Create a new issue | `{key, url}` |
 | `jcm_addComment` | Add a comment (plain text) | `{ok, id}` |
 | `jcm_searchIssues` | JQL search | `{total, issues: [{key, summary, status, assignee, updated, updatedJql}]}` |
