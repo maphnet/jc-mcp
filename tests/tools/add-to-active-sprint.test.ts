@@ -119,6 +119,23 @@ describe("jcm_addToActiveSprint", () => {
     expect(JSON.parse(opts.body)).toEqual({ issues: ["TEST-1"] });
   });
 
+  it("does not POST when the user declines confirmation", async () => {
+    vi.stubEnv("JCM_CONFIRM_WRITES", "true");
+    const server = { server: { elicitInput: vi.fn().mockResolvedValue({ action: "decline" }) } };
+    fetchSpy
+      .mockResolvedValueOnce(json({ fields: {} }))
+      .mockResolvedValueOnce(json({ values: [{ id: 42, name: "Sprint 42" }] }));
+
+    const result = JSON.parse(
+      await handleAddToActiveSprint(client, { issueKey: "TEST-1", boardId: 9 }, server as never)
+    );
+
+    vi.unstubAllEnvs();
+    expect(result).toMatchObject({ ok: false, key: "TEST-1" });
+    expect(server.server.elicitInput).toHaveBeenCalledTimes(1);
+    expect(posts()).toHaveLength(0);
+  });
+
   it("uses the explicit boardId without listing boards", async () => {
     fetchSpy
       .mockResolvedValueOnce(json({ fields: {} }))
