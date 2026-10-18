@@ -5,6 +5,7 @@ import { register as registerGetIssueChangelog } from "./tools/get-issue-changel
 import { register as registerGetAttachmentDownloadLink } from "./tools/get-attachment-download-link.js";
 import { register as registerGetTransitions } from "./tools/get-transitions.js";
 import { register as registerEditIssue } from "./tools/edit-issue.js";
+import { register as registerAddToActiveSprint } from "./tools/add-to-active-sprint.js";
 import { register as registerTransitionIssue } from "./tools/transition-issue.js";
 import { register as registerConvertIssueType } from "./tools/convert-issue-type.js";
 import { register as registerCreateIssue } from "./tools/create-issue.js";
@@ -44,6 +45,9 @@ export function createServer(client: AtlassianClient): McpServer {
   registerEditIssue(server, client);
   registerTransitionIssue(server, client);
   registerConvertIssueType(server, client);
+
+  // Sprint tools
+  registerAddToActiveSprint(server, client);
 
   // User tools
   registerGetCurrentUser(server, client);

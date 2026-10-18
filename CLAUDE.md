@@ -44,7 +44,7 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
-└── tools/                # One file per MCP tool (23 tools total)
+└── tools/                # One file per MCP tool (24 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
     ├── get-issue-changelog.ts # Field-change history, oldest first, `since` filter + paging ({entries, truncated})
     ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
@@ -52,6 +52,7 @@ src/
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
     ├── transition-issue.ts# Priority 1: Workflow state change
     ├── convert-issue-type.ts # Priority 1: Issue type conversion with two-step PUT ({ok, key, issueType, parentKey})
+    ├── add-to-active-sprint.ts # Priority 2: Add issue to active scrum sprint via Agile API ({ok, key, sprintId, sprintName, boardId} | skipped | candidates)
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (markdown → ADF)
     ├── search-issues.ts  # Priority 2: JQL search (lean results)
