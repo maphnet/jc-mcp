@@ -92,6 +92,9 @@ export async function handleConvertIssueType(
       ok: false,
       taskId,
       status: task.status,
+      ...(PENDING.has(task.status) && {
+        message: "Move still running in Jira; confirm the new type with jcm_getIssue.",
+      }),
       ...(Object.keys(failed).length > 0 && { failed }),
       ...(invalid > 0 && { invalidOrInaccessibleIssueCount: invalid }),
     });

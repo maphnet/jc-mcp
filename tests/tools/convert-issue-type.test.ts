@@ -98,7 +98,12 @@ describe("jcm_convertIssueType", () => {
 
     const result = await run({ issueKeys: ["PROJ-2"], issueTypeName: "Task" });
 
-    expect(result).toEqual({ ok: false, taskId: "80", status: "RUNNING" });
+    expect(result).toEqual({
+      ok: false,
+      taskId: "80",
+      status: "RUNNING",
+      message: "Move still running in Jira; confirm the new type with jcm_getIssue.",
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(2 + 30);
   });
 
