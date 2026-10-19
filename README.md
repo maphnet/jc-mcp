@@ -64,7 +64,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_addIssueLink` | Link two issues (e.g. Blocks, Relates) | `{ok, issueKey, targetKey, linkType}` |
 | `jcm_removeIssueLink` | Delete an issue link by ID | `{ok, linkId}` |
 | `jcm_getIssueLinks` | List links on an issue | `[{id, type, inwardIssue?, outwardIssue?}]` |
-| `jcm_convertIssueType` | Change issue type (e.g. Task → Sub-task with parent) | `{ok, key, issueType, parentKey}` |
+| `jcm_convertIssueType` | Change type of one or more issues, keeping keys (e.g. Tasks → Sub-tasks under a Story); uses Jira bulk move | `{ok, keys, issueType, parentKey}` |
 | `jcm_getArticle` | Read a Confluence page | Title + markdown body + `spaceId`, `parentId` |
 | `jcm_lookupSpace` | Resolve a Confluence space key to its numeric ID | `{id, key, name}` |
 | `jcm_createArticle` | Create a Confluence page | `{id, url}` |

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AtlassianClient } from "../../src/client.js";
 import type { Config } from "../../src/config.js";
+import { handleConvertIssueType } from "../../src/tools/convert-issue-type.js";
 
 const testConfig: Config = {
   siteUrl: "https://test.atlassian.net",
@@ -9,175 +10,129 @@ const testConfig: Config = {
   cloudId: "test-cloud-id",
 };
 
-function mockGetResponse(overrides: Record<string, any> = {}) {
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({
-      fields: {
-        issuetype: { name: "Task" },
-        parent: undefined,
-        ...overrides,
-      },
-    }),
-  };
-}
+const json = (body: unknown, status = 200) => ({
+  ok: status < 400,
+  status,
+  text: async () => JSON.stringify(body),
+  json: async () => body,
+});
 
-function mockPutResponse() {
-  return { ok: true, status: 204 };
-}
+const project = json({
+  issueTypes: [
+    { id: "10043", name: "Subtask" },
+    { id: "10045", name: "Task" },
+  ],
+});
 
 describe("jcm_convertIssueType", () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
   let client: AtlassianClient;
 
+  // Fake timers make the 1s poll interval instant.
+  const run = async (params: Parameters<typeof handleConvertIssueType>[1]) => {
+    const p = handleConvertIssueType(client, params);
+    p.catch(() => {});
+    await vi.runAllTimersAsync();
+    return p.then((r) => JSON.parse(r));
+  };
+  const moveBody = () => JSON.parse(fetchSpy.mock.calls[1][1].body);
+
   beforeEach(() => {
+    vi.useFakeTimers();
     fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     client = new AtlassianClient(testConfig);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it("converts task to sub-task (set type then parent)", async () => {
+  it("converts tasks to sub-tasks under a parent via bulk move", async () => {
     fetchSpy
-      .mockResolvedValueOnce(mockGetResponse()) // GET current state
-      .mockResolvedValueOnce(mockPutResponse()) // PUT issuetype
-      .mockResolvedValueOnce(mockPutResponse()); // PUT parent
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce(json({ taskId: "77" }, 201))
+      .mockResolvedValueOnce(json({ status: "RUNNING" }))
+      .mockResolvedValueOnce(json({ status: "COMPLETE", failedAccessibleIssues: {}, invalidOrInaccessibleIssueCount: 0 }));
 
-    const { handleConvertIssueType } = await import(
-      "../../src/tools/convert-issue-type.js"
-    );
-    const result = JSON.parse(
-      await handleConvertIssueType(client, {
-        issueKey: "PROJ-1",
-        issueTypeName: "Sub-task",
-        parentKey: "PROJ-2",
-      })
-    );
+    const result = await run({ issueKeys: ["PROJ-2", "PROJ-3"], issueTypeName: "subtask", parentKey: "PROJ-1" });
 
-    expect(result).toEqual({
-      ok: true,
-      key: "PROJ-1",
-      issueType: "Sub-task",
-      parentKey: "PROJ-2",
+    expect(result).toEqual({ ok: true, keys: ["PROJ-2", "PROJ-3"], issueType: "Subtask", parentKey: "PROJ-1" });
+    expect(fetchSpy.mock.calls[0][0]).toContain("/rest/api/3/project/PROJ");
+    expect(fetchSpy.mock.calls[1][0]).toContain("/rest/api/3/bulk/issues/move");
+    expect(moveBody().targetToSourcesMapping).toEqual({
+      "PROJ,10043,PROJ-1": expect.objectContaining({ issueIdsOrKeys: ["PROJ-2", "PROJ-3"] }),
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(fetchSpy.mock.calls[3][0]).toContain("/rest/api/3/bulk/queue/77");
   });
 
-  it("[CR-3] rejects cross-project parent before any mutation", async () => {
-    fetchSpy.mockResolvedValueOnce(mockGetResponse()); // GET current state
+  it("converts a sub-task to a standalone task (no parent in mapping key)", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce(json({ taskId: "78" }, 201))
+      .mockResolvedValueOnce(json({ status: "COMPLETE" }));
 
-    const { handleConvertIssueType } = await import(
-      "../../src/tools/convert-issue-type.js"
-    );
-    await expect(
-      handleConvertIssueType(client, {
-        issueKey: "PROJ-1",
-        issueTypeName: "Sub-task",
-        parentKey: "OTHER-2",
-      })
-    ).rejects.toThrow(
-      "Parent issue must be in the same project as the issue being converted."
-    );
+    const result = await run({ issueKeys: ["PROJ-2"], issueTypeName: "Task" });
 
-    // Only the initial GET should have been called -- no mutations
+    expect(result).toEqual({ ok: true, keys: ["PROJ-2"], issueType: "Task", parentKey: null });
+    expect(Object.keys(moveBody().targetToSourcesMapping)).toEqual(["PROJ,10045"]);
+  });
+
+  it("reports per-issue failures from the bulk task", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce(json({ taskId: "79" }, 201))
+      .mockResolvedValueOnce(json({ status: "COMPLETE", failedAccessibleIssues: { "10415": ["nope"] } }));
+
+    const result = await run({ issueKeys: ["PROJ-2"], issueTypeName: "Task" });
+
+    expect(result).toEqual({ ok: false, taskId: "79", status: "COMPLETE", failed: { "10415": ["nope"] } });
+  });
+
+  it("returns the taskId when the move is still running after the timeout", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce(json({ taskId: "80" }, 201))
+      .mockResolvedValue(json({ status: "RUNNING" }));
+
+    const result = await run({ issueKeys: ["PROJ-2"], issueTypeName: "Task" });
+
+    expect(result).toEqual({
+      ok: false,
+      taskId: "80",
+      status: "RUNNING",
+      message: "Move still running in Jira; confirm the new type with jcm_getIssue.",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(2 + 30);
+  });
+
+  it("rejects an unknown issue type before any write", async () => {
+    fetchSpy.mockResolvedValueOnce(project);
+
+    await expect(run({ issueKeys: ["PROJ-2"], issueTypeName: "Epic" })).rejects.toThrow(
+      'Issue type "Epic" not found in PROJ. Available: Subtask, Task'
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("[CR-2] skips parent-clearing PUT when issue already has no parent", async () => {
-    fetchSpy
-      .mockResolvedValueOnce(mockGetResponse()) // GET: no parent
-      .mockResolvedValueOnce(mockPutResponse()); // PUT issuetype only
-
-    const { handleConvertIssueType } = await import(
-      "../../src/tools/convert-issue-type.js"
+  it("rejects issues or parent from another project without calling Jira", async () => {
+    await expect(run({ issueKeys: ["PROJ-2"], issueTypeName: "Subtask", parentKey: "OTHER-1" })).rejects.toThrow(
+      "same project"
     );
-    const result = JSON.parse(
-      await handleConvertIssueType(client, {
-        issueKey: "PROJ-1",
-        issueTypeName: "Task",
-      })
-    );
-
-    expect(result.ok).toBe(true);
-    // Should be 2 calls: GET + 1 PUT (issuetype only), NOT 3
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    const secondCall = fetchSpy.mock.calls[1];
-    const body = JSON.parse(secondCall[1].body);
-    expect(body.fields).toHaveProperty("issuetype");
-    expect(body.fields).not.toHaveProperty("parent");
+    await expect(run({ issueKeys: ["PROJ-2", "OTHER-3"], issueTypeName: "Task" })).rejects.toThrow("same project");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("clears parent when sub-task has a parent", async () => {
+  it("surfaces Jira validation errors from the move request", async () => {
     fetchSpy
+      .mockResolvedValueOnce(project)
       .mockResolvedValueOnce(
-        mockGetResponse({
-          issuetype: { name: "Sub-task" },
-          parent: { key: "PROJ-10" },
-        })
-      ) // GET: has parent
-      .mockResolvedValueOnce(mockPutResponse()) // PUT parent: null
-      .mockResolvedValueOnce(mockPutResponse()); // PUT issuetype
+        json({ errors: [{ message: "Target parent provided should be on a higher level than the target issue type." }] }, 400)
+      );
 
-    const { handleConvertIssueType } = await import(
-      "../../src/tools/convert-issue-type.js"
+    await expect(run({ issueKeys: ["PROJ-2"], issueTypeName: "Subtask", parentKey: "PROJ-3" })).rejects.toThrow(
+      "Jira API error 400"
     );
-    const result = JSON.parse(
-      await handleConvertIssueType(client, {
-        issueKey: "PROJ-1",
-        issueTypeName: "Task",
-      })
-    );
-
-    expect(result.ok).toBe(true);
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
-
-    // First PUT clears parent
-    const firstPutBody = JSON.parse(fetchSpy.mock.calls[1][1].body);
-    expect(firstPutBody.fields.parent).toBeNull();
-
-    // Second PUT sets issuetype
-    const secondPutBody = JSON.parse(fetchSpy.mock.calls[2][1].body);
-    expect(secondPutBody.fields.issuetype.name).toBe("Task");
-  });
-
-  it("[CR-4] rollback restores both parent and issuetype on failure", async () => {
-    fetchSpy
-      .mockResolvedValueOnce(
-        mockGetResponse({
-          issuetype: { name: "Sub-task" },
-          parent: { key: "PROJ-10" },
-        })
-      ) // GET
-      .mockResolvedValueOnce(mockPutResponse()) // PUT parent: null (success)
-      .mockResolvedValueOnce(
-        Promise.reject(new Error("issuetype change failed"))
-      ) // PUT issuetype (fail)
-      .mockResolvedValueOnce(mockPutResponse()) // rollback: restore parent
-      .mockResolvedValueOnce(mockPutResponse()); // rollback: restore issuetype
-
-    const { handleConvertIssueType } = await import(
-      "../../src/tools/convert-issue-type.js"
-    );
-    await expect(
-      handleConvertIssueType(client, {
-        issueKey: "PROJ-1",
-        issueTypeName: "Task",
-      })
-    ).rejects.toThrow("issuetype change failed");
-
-    // 5 calls: GET + clear parent + fail issuetype + rollback parent + rollback issuetype
-    expect(fetchSpy).toHaveBeenCalledTimes(5);
-
-    // Rollback parent
-    const rollbackParentBody = JSON.parse(fetchSpy.mock.calls[3][1].body);
-    expect(rollbackParentBody.fields.parent.key).toBe("PROJ-10");
-
-    // Rollback issuetype
-    const rollbackTypeBody = JSON.parse(fetchSpy.mock.calls[4][1].body);
-    expect(rollbackTypeBody.fields.issuetype.name).toBe("Sub-task");
   });
 });

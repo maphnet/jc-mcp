@@ -51,7 +51,7 @@ src/
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
     ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
     ├── transition-issue.ts# Priority 1: Workflow state change
-    ├── convert-issue-type.ts # Priority 1: Issue type conversion with two-step PUT ({ok, key, issueType, parentKey})
+    ├── convert-issue-type.ts # Priority 1: Issue type conversion via async bulk move API + queue poll ({ok, keys, issueType, parentKey})
     ├── add-to-active-sprint.ts # Priority 2: Add issue to active scrum sprint via Agile API ({ok, key, sprintId, sprintName, boardId} | skipped | candidates)
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (markdown → ADF)
