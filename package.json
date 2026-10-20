@@ -29,6 +29,7 @@
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "version": "node -e \"const f='server.json',s=JSON.parse(require('fs').readFileSync(f,'utf8'));s.version_detail.version=process.env.npm_package_version;require('fs').writeFileSync(f,JSON.stringify(s,null,2)+'\\n')\" && git add server.json",
     "prepublishOnly": "npm run build && npm test"
   },
   "engines": {

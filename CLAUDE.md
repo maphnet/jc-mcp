@@ -27,6 +27,8 @@ npm publish --access public   # publish @maphnet/jc-mcp (scoped → needs flag)
 git push && git push --tags   # push version commit + tag created by npm version
 ```
 
+`npm version` also syncs `server.json` automatically (via the `version` script). The server's reported version is read from `package.json` at runtime; never hard-code it.
+
 Requires `npm login` if not already authenticated.
 
 ## Architecture
