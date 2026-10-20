@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AtlassianClient } from "./client.js";
 import { register as registerGetIssue } from "./tools/get-issue.js";
@@ -25,6 +26,9 @@ import { register as registerAddIssueLink } from "./tools/add-issue-link.js";
 import { register as registerRemoveIssueLink } from "./tools/remove-issue-link.js";
 import { register as registerGetIssueLinks } from "./tools/get-issue-links.js";
 
+// Resolves to the repo-root package.json from both src/ and dist/.
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
+
 /**
  * Builds a fresh McpServer with every jc-mcp tool bound to `client`.
  * stdio calls this once; HTTP mode calls it once per client session so
@@ -34,7 +38,7 @@ import { register as registerGetIssueLinks } from "./tools/get-issue-links.js";
 export function createServer(client: AtlassianClient): McpServer {
   const server = new McpServer({
     name: "jc-mcp",
-    version: "0.1.0",
+    version,
   });
 
   // Priority 1 tools
