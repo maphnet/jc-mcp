@@ -11,6 +11,7 @@ const ISSUE_FIELDS = [
   "issuetype",
   "priority",
   "assignee",
+  "reporter",
   "labels",
   "updated",
   "comment",
@@ -57,6 +58,9 @@ export async function handleGetIssue(
     type: fields.issuetype?.name ?? "",
     priority: fields.priority?.name ?? "",
     assignee: fields.assignee?.displayName ?? null,
+    reporter: fields.reporter
+      ? { displayName: fields.reporter.displayName ?? "", accountId: fields.reporter.accountId ?? "" }
+      : null,
     labels: fields.labels ?? [],
     updated,
     updatedJql: await client.toJqlDate(updated),
@@ -79,7 +83,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issue",
       description:
-        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, labels, updated (ISO), updatedJql (updated floored to the minute in your Jira timezone, for JQL `updated > \"...\"` polling; at-least-once, dedupe; null if unavailable), comments (id, author, authorAccountId, body, created, updated), attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
+        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, reporter ({displayName, accountId} or null), labels, updated (ISO), updatedJql (updated floored to the minute in your Jira timezone, for JQL `updated > \"...\"` polling; at-least-once, dedupe; null if unavailable), comments (id, author, authorAccountId, body, created, updated), attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -46,7 +46,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 
 | Tool | Description | Returns |
 |------|-------------|---------|
-| `jcm_getIssue` | Read a Jira issue | Flat fields + markdown description + attachments + `updated`/`updatedJql`; comments carry `id`, `authorAccountId`, `updated` |
+| `jcm_getIssue` | Read a Jira issue | Flat fields (incl. `reporter` `{displayName, accountId}` or `null`) + markdown description + attachments + `updated`/`updatedJql`; comments carry `id`, `authorAccountId`, `updated` |
 | `jcm_getIssueChangelog` | Field-change history, oldest first, optionally after `since` | `{entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}` |
 | `jcm_getAttachmentDownloadLink` | Resolve a temporary attachment download URL on demand | `{attachmentId, filename, url, temporary: true}` |
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
