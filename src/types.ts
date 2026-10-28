@@ -6,6 +6,7 @@ export interface LeanIssue {
   type: string;
   priority: string;
   assignee: string | null;
+  reporter: { displayName: string; accountId: string } | null;
   labels: string[];
   updated: string;
   updatedJql: string | null;

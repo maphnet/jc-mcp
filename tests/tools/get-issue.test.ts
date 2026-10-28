@@ -35,6 +35,7 @@ const jiraIssueResponse = {
       avatarUrls: {},
       self: "https://...",
     },
+    reporter: { displayName: "Rita Reporter", accountId: "rep456", avatarUrls: {} },
     labels: ["backend", "auth"],
     comment: {
       comments: [
@@ -99,6 +100,8 @@ describe("jcm_getIssue", () => {
     expect(parsed.type).toBe("Bug");
     expect(parsed.priority).toBe("High");
     expect(parsed.assignee).toBe("Jane Doe");
+    expect(url).toContain("reporter");
+    expect(parsed.reporter).toEqual({ displayName: "Rita Reporter", accountId: "rep456" });
     expect(parsed.labels).toEqual(["backend", "auth"]);
     expect(parsed.comments).toHaveLength(1);
     expect(parsed.comments[0].author).toBe("Bob Smith");
@@ -109,6 +112,17 @@ describe("jcm_getIssue", () => {
     expect(parsed.expand).toBeUndefined();
     expect(parsed.self).toBeUndefined();
     expect(parsed.fields).toBeUndefined();
+  });
+
+  it("returns reporter null when Jira returns no reporter", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({ ...jiraIssueResponse, fields: { ...jiraIssueResponse.fields, reporter: null } }),
+    });
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const parsed = JSON.parse(await handleGetIssue(client, { issueKey: "TEST-1" }));
+    expect(parsed.reporter).toBeNull();
   });
 
   it("selects and maps lean attachment metadata without resolving download links", async () => {
