@@ -14,6 +14,9 @@ marked.use({
     tag() {
       return undefined as any;
     },
+    html() {
+      return undefined as any;
+    },
   },
 });
 

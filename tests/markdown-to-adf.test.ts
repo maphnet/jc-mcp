@@ -165,6 +165,10 @@ describe("markdownToAdf write round trip (N1-200)", () => {
     expect(rt("see memory/<ID>/implementation.md")).toBe("see memory/<ID>/implementation.md");
   });
 
+  it("keeps a standalone placeholder line as literal text", () => {
+    expect(rt("text\n\n<ID>\n\nmore")).toBe("text\n\n<ID>\n\nmore");
+  });
+
   it("still converts autolinks", () => {
     const para = markdownToAdf("<https://example.com>").content[0];
     expect(para.content[0].marks[0].type).toBe("link");
