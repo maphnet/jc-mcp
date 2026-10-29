@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { markdownToAdf, markdownToStorage } from "../src/markdown-to-adf.js";
+import { adfToMarkdown } from "../src/adf-to-markdown.js";
 
 describe("markdownToAdf", () => {
   it("converts plain text to single paragraph ADF", () => {
@@ -146,5 +147,40 @@ describe("markdownToStorage", () => {
   it("self-closes br tags for XHTML compliance", () => {
     const result = markdownToStorage("line1  \nline2");
     expect(result).toContain("<br />");
+  });
+});
+
+describe("markdownToAdf write round trip (N1-200)", () => {
+  const rt = (m: string) => adfToMarkdown(markdownToAdf(m));
+
+  it("keeps single tildes literal, including across code spans", () => {
+    expect(rt("about ~1.2% then `~/.n1/x` ok")).toBe("about ~1.2% then `~/.n1/x` ok");
+  });
+
+  it("still converts double tildes to strikethrough", () => {
+    expect(rt("a ~~gone~~ b")).toBe("a ~~gone~~ b");
+  });
+
+  it("keeps angle-bracket placeholders as literal text", () => {
+    expect(rt("see memory/<ID>/implementation.md")).toBe("see memory/<ID>/implementation.md");
+  });
+
+  it("still converts autolinks", () => {
+    const para = markdownToAdf("<https://example.com>").content[0];
+    expect(para.content[0].marks[0].type).toBe("link");
+  });
+
+  it("round-trips bold directly after an inline code span", () => {
+    expect(rt("`--since` **is truncated.**")).toBe("`--since` **is truncated.**");
+  });
+
+  it("emits nested task lists as siblings of the taskItem", () => {
+    const adf = markdownToAdf("- [ ] a\n  - [ ] b\n- [x] c");
+    const list = adf.content[0];
+    expect(list.content.map((n: any) => n.type)).toEqual(["taskItem", "taskList", "taskItem"]);
+    for (const item of list.content.filter((n: any) => n.type === "taskItem")) {
+      expect(item.content.some((c: any) => c.type === "taskList")).toBe(false);
+    }
+    expect(adfToMarkdown(adf)).toBe("- [ ] a\n  - [ ] b\n- [x] c");
   });
 });
