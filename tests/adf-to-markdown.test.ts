@@ -284,3 +284,56 @@ describe("storageToMarkdown", () => {
     expect(result).toContain("- Beta");
   });
 });
+
+describe("adfToMarkdown task lists", () => {
+  const item = (state: string, text: string) => ({
+    type: "taskItem",
+    attrs: { localId: text, state },
+    content: [{ type: "text", text }],
+  });
+
+  it("renders TODO, DONE and nested task items", () => {
+    const adf = {
+      type: "doc",
+      version: 1,
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "AC" }] },
+        {
+          type: "taskList",
+          attrs: { localId: "l" },
+          content: [
+            item("TODO", "one"),
+            item("DONE", "two"),
+            { type: "taskList", attrs: { localId: "n" }, content: [item("TODO", "nested")] },
+          ],
+        },
+      ],
+    };
+    expect(adfToMarkdown(adf)).toBe(
+      "## AC\n\n- [ ] one\n- [x] two\n  - [ ] nested"
+    );
+  });
+
+  it("renders task lists nested inside a taskItem (writer shape)", () => {
+    const adf = {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { state: "DONE" },
+              content: [
+                { type: "text", text: "b" },
+                { type: "taskList", content: [item("TODO", "c")] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(adfToMarkdown(adf)).toBe("- [x] b\n  - [ ] c");
+  });
+});
