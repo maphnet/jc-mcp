@@ -336,4 +336,30 @@ describe("adfToMarkdown task lists", () => {
     };
     expect(adfToMarkdown(adf)).toBe("- [x] b\n  - [ ] c");
   });
+
+  it("indents continuation lines of a multi-line task item", () => {
+    const adf = {
+      type: "doc",
+      version: 1,
+      content: [
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: { state: "TODO" },
+              content: [
+                { type: "text", text: "first" },
+                { type: "hardBreak" },
+                { type: "hardBreak" },
+                { type: "text", text: "# not a heading" },
+              ],
+            },
+            item("TODO", "next"),
+          ],
+        },
+      ],
+    };
+    expect(adfToMarkdown(adf)).toBe("- [ ] first\n\n  # not a heading\n- [ ] next");
+  });
 });

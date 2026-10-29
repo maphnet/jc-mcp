@@ -133,7 +133,12 @@ function convertTaskList(node: AdfNode): string {
       if (child.type === "taskList") return indent(convertTaskList(child));
       const kids = child.content ?? [];
       const mark = child.attrs?.state === "DONE" ? "x" : " ";
-      const line = `- [${mark}] ${convertInlines(kids.filter((k) => k.type !== "taskList"))}`;
+      // Indent continuation lines (hardBreak) so they stay inside the item.
+      const body = convertInlines(kids.filter((k) => k.type !== "taskList"))
+        .split("\n")
+        .map((l, i) => (i === 0 || l === "" ? l : `  ${l}`))
+        .join("\n");
+      const line = `- [${mark}] ${body}`;
       const nested = kids
         .filter((k) => k.type === "taskList")
         .map((k) => indent(convertTaskList(k)));
