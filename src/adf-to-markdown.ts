@@ -58,6 +58,9 @@ function convertBlock(node: AdfNode, ctx: ConvertContext): string | null {
         .map((item, i) => convertListItem(item, "ordered", i + 1))
         .join("\n");
 
+    case "taskList":
+      return convertTaskList(node);
+
     case "listItem": {
       // Handled by bulletList/orderedList parent
       const inner = (node.content ?? [])
@@ -115,6 +118,33 @@ function convertListItem(
     .filter((s) => s !== null)
     .join("\n");
   return `${prefix} ${inner}`;
+}
+
+function convertTaskList(node: AdfNode): string {
+  const indent = (s: string) =>
+    s
+      .split("\n")
+      .map((line) => `  ${line}`)
+      .join("\n");
+  return (node.content ?? [])
+    .map((child) => {
+      // Nested task lists are siblings of taskItem in ADF, but the
+      // markdown-to-adf writer puts them inside the taskItem content.
+      if (child.type === "taskList") return indent(convertTaskList(child));
+      const kids = child.content ?? [];
+      const mark = child.attrs?.state === "DONE" ? "x" : " ";
+      // Indent continuation lines (hardBreak) so they stay inside the item.
+      const body = convertInlines(kids.filter((k) => k.type !== "taskList"))
+        .split("\n")
+        .map((l, i) => (i === 0 || l === "" ? l : `  ${l}`))
+        .join("\n");
+      const line = `- [${mark}] ${body}`;
+      const nested = kids
+        .filter((k) => k.type === "taskList")
+        .map((k) => indent(convertTaskList(k)));
+      return [line, ...nested].join("\n");
+    })
+    .join("\n");
 }
 
 function convertInlines(nodes: AdfNode[]): string {
