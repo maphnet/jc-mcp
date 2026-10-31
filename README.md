@@ -61,7 +61,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_createVersion` | Create a release version | `{id, name}` |
 | `jcm_listVersions` | List project versions | `[{id, name, released, releaseDate}]` |
 | `jcm_releaseVersion` | Mark a version as released | `{ok, id, name}` |
-| `jcm_addIssueLink` | Link two issues (e.g. Blocks, Relates) | `{ok, issueKey, targetKey, linkType}` |
+| `jcm_addIssueLink` | Link two issues: issueKey → targetIssueKey (A blocks B) | `{ok, issueKey, targetKey, linkType}` |
 | `jcm_removeIssueLink` | Delete an issue link by ID | `{ok, linkId}` |
 | `jcm_getIssueLinks` | List links on an issue | `[{id, type, inwardIssue?, outwardIssue?}]` |
 | `jcm_convertIssueType` | Change type of one or more issues, keeping keys (e.g. Tasks → Sub-tasks under a Story); uses Jira bulk move | `{ok, keys, issueType, parentKey}` |
