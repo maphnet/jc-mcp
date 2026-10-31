@@ -63,7 +63,7 @@ src/
     ├── create-version.ts # Version management: create release ({id, name})
     ├── list-versions.ts  # Version management: list releases ([{id, name, released, releaseDate}])
     ├── release-version.ts# Version management: mark released ({ok, id, name})
-    ├── add-issue-link.ts # Issue links: create link ({ok, issueKey, targetKey, linkType})
+    ├── add-issue-link.ts # Issue links: create link, issueKey is source/outward (A blocks B) ({ok, issueKey, targetKey, linkType})
     ├── remove-issue-link.ts # Issue links: delete link ({ok, linkId})
     ├── get-issue-links.ts# Issue links: list links ([{id, type, inwardIssue?, outwardIssue?}])
     ├── get-article.ts    # Priority 3: Confluence page read
