@@ -6,7 +6,7 @@
     "source": "https://github.com/maphnet/jc-mcp"
   },
   "version_detail": {
-    "version": "0.10.2",
+    "version": "0.10.3",
     "release_date": "2026-08-14",
     "package_canonical": "npm:@maphnet/jc-mcp"
   }
