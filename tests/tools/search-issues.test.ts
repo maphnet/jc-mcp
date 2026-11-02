@@ -71,11 +71,59 @@ describe("jcm_searchIssues", () => {
     expect(url).toContain("fields=summary");
   });
 
+  describe("zero-result validation", () => {
+    const empty = { ok: true, json: async () => ({ issues: [], total: 0 }) };
+    const parse = (errors: string[]) => ({
+      ok: true,
+      json: async () => ({ queries: [{ query: "q", errors }] }),
+    });
+
+    it.each([
+      ["project = N1 AND issuetype = NoSuchTypeXyz", "The value 'NoSuchTypeXyz' does not exist for the field 'issuetype'."],
+      ["parent = N1-999999", "Issue does not exist or you do not have permission to see it."],
+    ])("rejects invalid JQL %s", async (jql, msg) => {
+      fetchSpy.mockResolvedValueOnce(empty).mockResolvedValueOnce(parse([msg]));
+      const { handleSearchIssues } = await import("../../src/tools/search-issues.js");
+      await expect(handleSearchIssues(client, { jql })).rejects.toThrow(msg);
+    });
+
+    it("returns empty result for a valid query with no matches", async () => {
+      const jql = "project = TEST AND status = Done";
+      fetchSpy.mockResolvedValueOnce(empty).mockResolvedValueOnce(parse([]));
+      const { handleSearchIssues } = await import("../../src/tools/search-issues.js");
+      const result = await handleSearchIssues(client, { jql });
+
+      expect(JSON.parse(result).issues).toEqual([]);
+      const [url, init] = fetchSpy.mock.calls[1];
+      expect(url).toContain("/rest/api/3/jql/parse");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body)).toEqual({ queries: [jql] });
+    });
+
+    it("propagates a failing parse call", async () => {
+      fetchSpy
+        .mockResolvedValueOnce(empty)
+        .mockResolvedValueOnce({ ok: false, status: 403, statusText: "Forbidden", text: async () => "" });
+      const { handleSearchIssues } = await import("../../src/tools/search-issues.js");
+      await expect(handleSearchIssues(client, { jql: "project = TEST" })).rejects.toThrow();
+    });
+
+    it("makes no parse call when there are results", async () => {
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ issues: [{ key: "T-1", fields: {} }], total: 1 }),
+      });
+      const { handleSearchIssues } = await import("../../src/tools/search-issues.js");
+      await handleSearchIssues(client, { jql: "key = T-1" });
+      expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes("/jql/parse"))).toHaveLength(0);
+    });
+  });
+
   it("supports maxResults parameter", async () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: () =>
-        Promise.resolve({ issues: [], total: 0, maxResults: 10 }),
+        Promise.resolve({ issues: [{ key: "TEST-1", fields: {} }], total: 1, maxResults: 10 }),
     });
 
     const { handleSearchIssues } = await import(

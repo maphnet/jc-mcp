@@ -57,7 +57,7 @@ src/
     ├── add-to-active-sprint.ts # Priority 2: Add issue to active scrum sprint via Agile API ({ok, key, sprintId, sprintName, boardId} | skipped | candidates)
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (markdown → ADF)
-    ├── search-issues.ts  # Priority 2: JQL search (lean results)
+    ├── search-issues.ts  # Priority 2: JQL search (lean results; zero results → jql/parse, invalid JQL throws)
     ├── get-current-user.ts # User info: authenticated user ({accountId, displayName, email, active})
     ├── lookup-user.ts    # User lookup: find user by email ([{accountId, displayName, email, active}])
     ├── create-version.ts # Version management: create release ({id, name})
