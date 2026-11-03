@@ -34,6 +34,16 @@ export async function handleSearchIssues(
     total: number;
   }>("/rest/api/3/search/jql", queryParams);
 
+  // Search silently returns zero results for invalid values; surface them.
+  // A failing parse call propagates as a tool error (no fallback).
+  if (!raw.issues?.length) {
+    const parsed = await client.jiraPost<{
+      queries?: { errors?: string[] }[];
+    }>("/rest/api/3/jql/parse?validation=strict", { queries: [params.jql] });
+    const errors = parsed.queries?.[0]?.errors ?? [];
+    if (errors.length) throw new Error(`Invalid JQL: ${errors.join("; ")}`);
+  }
+
   // toJqlDate caches the /myself promise synchronously, so this is one lookup.
   const issues: LeanSearchResult[] = await Promise.all(
     (raw.issues ?? []).map(async (issue: any) => {
@@ -58,7 +68,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Search Jira Issues",
       description:
-        "Search Jira issues using JQL. Returns {total, issues: [{key, summary, status, assignee, updated, updatedJql}]}. updatedJql is the issue's updated time floored to the minute in your Jira timezone; poll with `key = X AND updated > \"<updatedJql>\"` (at-least-once, dedupe).",
+        "Search Jira issues using JQL. Returns {total, issues: [{key, summary, status, assignee, updated, updatedJql}]}. updatedJql is the issue's updated time floored to the minute in your Jira timezone; poll with `key = X AND updated > \"<updatedJql>\"` (at-least-once, dedupe). Zero results are validated: invalid JQL values (unknown issue type, missing parent, etc.) return an error instead of an empty list.",
       inputSchema,
       annotations: {
         readOnlyHint: true,
