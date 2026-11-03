@@ -23,6 +23,30 @@ const inputSchema = z.object({
 
 type Input = z.infer<typeof inputSchema>;
 
+// Compact, single-line preview of a value for the confirmation dialog.
+function preview(v: unknown): string {
+  let s: string;
+  try {
+    s = JSON.stringify(v) ?? String(v);
+  } catch {
+    s = String(v);
+  }
+  s = s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ");
+  return s.length > 200 ? `${s.slice(0, 200)}…` : s;
+}
+
+function describeUpdate(update: Record<string, unknown>): string[] {
+  return Object.entries(update).flatMap(([field, ops]) => {
+    if (!Array.isArray(ops)) return [`${field}: ${preview(ops)}`];
+    return ops.map((op) => {
+      if (op && typeof op === "object" && !Array.isArray(op)) {
+        return Object.entries(op).map(([verb, val]) => `${field}:${verb} ${preview(val)}`).join("; ");
+      }
+      return `${field}: ${preview(op)}`;
+    });
+  });
+}
+
 export async function handleEditIssue(
   client: AtlassianClient,
   params: Input,
@@ -37,8 +61,8 @@ export async function handleEditIssue(
 
   if (server) {
     const parts: string[] = [];
-    if (hasFields) parts.push(`update fields [${Object.keys(params.fields!).join(", ")}]`);
-    if (hasUpdate) parts.push(`apply update ops [${Object.keys(params.update!).join(", ")}]`);
+    if (hasFields) parts.push(`update fields [${Object.entries(params.fields!).map(([k, v]) => `${k}=${preview(v)}`).join("; ")}]`);
+    if (hasUpdate) parts.push(`apply update ops [${describeUpdate(params.update!).join("; ")}]`);
     const summary = `Edit ${params.issueKey}: ${parts.join("; ")}`;
     const { confirmed } = await confirmWrite(server, "Edit Jira Issue", summary, requestId);
     if (!confirmed) {

@@ -120,4 +120,37 @@ describe("jcm_editIssue", () => {
     ).rejects.toThrow(/fields.*update/);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("shows op verbs and truncated, single-line payloads in the confirmation summary", async () => {
+    process.env.JCM_CONFIRM_WRITES = "true";
+    try {
+      fetchSpy.mockResolvedValue({ ok: true, status: 204, text: async () => "" });
+      const server = { server: { elicitInput: vi.fn().mockResolvedValue({ action: "accept", content: { confirm: true } }) } } as any;
+      const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+      await handleEditIssue(
+        client,
+        {
+          issueKey: "PROJ-1",
+          fields: { summary: "New\ninjected line" },
+          update: {
+            fixVersions: [{ add: { name: "1.2.0" } }],
+            labels: [{ set: [] }],
+            comment: [{ add: { body: "x".repeat(500) } }],
+            weird: "nope" as any,
+          },
+        },
+        server
+      );
+      const msg: string = server.server.elicitInput.mock.calls[0][0].message;
+      expect(msg).toContain('fixVersions:add {"name":"1.2.0"}');
+      expect(msg).toContain("labels:set []");
+      expect(msg).toContain("comment:add");
+      expect(msg).toContain('weird: "nope"');
+      expect(msg).toContain("summary=");
+      expect(msg).not.toContain("x".repeat(300));
+      expect(msg).not.toContain("New\ninjected");
+    } finally {
+      delete process.env.JCM_CONFIRM_WRITES;
+    }
+  });
 });
