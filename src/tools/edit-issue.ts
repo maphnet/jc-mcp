@@ -23,7 +23,12 @@ const inputSchema = z.object({
 
 type Input = z.infer<typeof inputSchema>;
 
-// Compact, single-line preview of a value for the confirmation dialog.
+// Single-line, bounded, control/bidi/zero-width-free text for the confirmation dialog.
+function clean(s: string, max = 200): string {
+  s = s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, "");
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
 function preview(v: unknown): string {
   let s: string;
   try {
@@ -31,16 +36,19 @@ function preview(v: unknown): string {
   } catch {
     s = String(v);
   }
-  s = s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ");
-  return s.length > 200 ? `${s.slice(0, 200)}…` : s;
+  return clean(s);
 }
 
 function describeUpdate(update: Record<string, unknown>): string[] {
-  return Object.entries(update).flatMap(([field, ops]) => {
+  return Object.entries(update).flatMap(([rawField, ops]) => {
+    const field = clean(rawField, 100);
     if (!Array.isArray(ops)) return [`${field}: ${preview(ops)}`];
+    if (ops.length === 0) return [`${field}: []`];
     return ops.map((op) => {
       if (op && typeof op === "object" && !Array.isArray(op)) {
-        return Object.entries(op).map(([verb, val]) => `${field}:${verb} ${preview(val)}`).join("; ");
+        const entries = Object.entries(op);
+        if (entries.length === 0) return `${field}: {}`;
+        return entries.map(([verb, val]) => `${field}:${clean(verb, 100)} ${preview(val)}`).join("; ");
       }
       return `${field}: ${preview(op)}`;
     });
@@ -61,7 +69,7 @@ export async function handleEditIssue(
 
   if (server) {
     const parts: string[] = [];
-    if (hasFields) parts.push(`update fields [${Object.entries(params.fields!).map(([k, v]) => `${k}=${preview(v)}`).join("; ")}]`);
+    if (hasFields) parts.push(`update fields [${Object.entries(params.fields!).map(([k, v]) => `${clean(k, 100)}=${preview(v)}`).join("; ")}]`);
     if (hasUpdate) parts.push(`apply update ops [${describeUpdate(params.update!).join("; ")}]`);
     const summary = `Edit ${params.issueKey}: ${parts.join("; ")}`;
     const { confirmed } = await confirmWrite(server, "Edit Jira Issue", summary, requestId);
