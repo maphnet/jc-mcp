@@ -78,4 +78,46 @@ describe("jcm_editIssue", () => {
     const body = JSON.parse(opts.body);
     expect(body.fields.description).toEqual(adfObj);
   });
+
+  it("sends update-only body without fields", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    const result = await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      update: { fixVersions: [{ add: { name: "1.2.0" } }] },
+    });
+
+    expect(JSON.parse(result)).toEqual({ ok: true, key: "TEST-1" });
+    const [, opts] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(opts.body)).toEqual({
+      update: { fixVersions: [{ add: { name: "1.2.0" } }] },
+    });
+  });
+
+  it("sends both fields and update", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      fields: { summary: "New" },
+      update: { labels: [{ add: "x" }] },
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(opts.body)).toEqual({
+      fields: { summary: "New" },
+      update: { labels: [{ add: "x" }] },
+    });
+  });
+
+  it("rejects when neither fields nor update is provided, without calling fetch", async () => {
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await expect(handleEditIssue(client, { issueKey: "TEST-1" })).rejects.toThrow(/fields.*update/);
+    await expect(
+      handleEditIssue(client, { issueKey: "TEST-1", fields: {}, update: {} })
+    ).rejects.toThrow(/fields.*update/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
