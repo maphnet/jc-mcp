@@ -50,7 +50,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_getIssueChangelog` | Field-change history, oldest first, optionally after `since` | `{entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}` |
 | `jcm_getAttachmentDownloadLink` | Resolve a temporary attachment download URL on demand | `{attachmentId, filename, url, temporary: true}` |
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
-| `jcm_editIssue` | Update issue fields | `{ok, key}` |
+| `jcm_editIssue` | Update issue fields and/or apply `update` ops (e.g. add fix version) | `{ok, key}` |
 | `jcm_transitionIssue` | Change workflow state | `{ok, key}` |
 | `jcm_addToActiveSprint` | Add an issue to its project's active scrum sprint (no-op if already in one or no scrum board; returns candidates if ambiguous; pass `boardId` when several scrum boards exist) | `{ok, key, sprintId, sprintName, boardId}` or `{ok, skipped}` / `{ok: false, reason, candidates}` |
 | `jcm_createIssue` | Create a new issue | `{key, url}` |
@@ -114,7 +114,7 @@ Less tokens = faster responses, lower cost, more room in the context window.
 Set `JCM_CONFIRM_WRITES=true` to require user confirmation before every write operation. When enabled, the following tools present a confirmation form (via MCP elicitation) before executing:
 
 - `jcm_createIssue` — create a Jira issue
-- `jcm_editIssue` — update issue fields
+- `jcm_editIssue` — update issue fields or apply incremental `update` ops
 - `jcm_transitionIssue` — change workflow state
 - `jcm_addToActiveSprint` — add an issue to the active sprint
 - `jcm_addComment` — add a comment

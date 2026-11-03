@@ -78,4 +78,105 @@ describe("jcm_editIssue", () => {
     const body = JSON.parse(opts.body);
     expect(body.fields.description).toEqual(adfObj);
   });
+
+  it("sends update-only body without fields", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    const result = await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      update: { fixVersions: [{ add: { name: "1.2.0" } }] },
+    });
+
+    expect(JSON.parse(result)).toEqual({ ok: true, key: "TEST-1" });
+    const [, opts] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(opts.body)).toEqual({
+      update: { fixVersions: [{ add: { name: "1.2.0" } }] },
+    });
+  });
+
+  it("sends both fields and update", async () => {
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await handleEditIssue(client, {
+      issueKey: "TEST-1",
+      fields: { summary: "New" },
+      update: { labels: [{ add: "x" }] },
+    });
+
+    const [, opts] = fetchSpy.mock.calls[0];
+    expect(JSON.parse(opts.body)).toEqual({
+      fields: { summary: "New" },
+      update: { labels: [{ add: "x" }] },
+    });
+  });
+
+  it("rejects when neither fields nor update is provided, without calling fetch", async () => {
+    const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+    await expect(handleEditIssue(client, { issueKey: "TEST-1" })).rejects.toThrow(/fields.*update/);
+    await expect(
+      handleEditIssue(client, { issueKey: "TEST-1", fields: {}, update: {} })
+    ).rejects.toThrow(/fields.*update/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows op verbs and truncated, single-line payloads in the confirmation summary", async () => {
+    process.env.JCM_CONFIRM_WRITES = "true";
+    try {
+      fetchSpy.mockResolvedValue({ ok: true, status: 204, text: async () => "" });
+      const server = { server: { elicitInput: vi.fn().mockResolvedValue({ action: "accept", content: { confirm: true } }) } } as any;
+      const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+      await handleEditIssue(
+        client,
+        {
+          issueKey: "PROJ-1",
+          fields: { summary: "New\ninjected line" },
+          update: {
+            fixVersions: [{ add: { name: "1.2.0" } }],
+            labels: [{ set: [] }],
+            comment: [{ add: { body: "x".repeat(500) } }],
+            weird: "nope" as any,
+          },
+        },
+        server
+      );
+      const msg: string = server.server.elicitInput.mock.calls[0][0].message;
+      expect(msg).toContain('fixVersions:add {"name":"1.2.0"}');
+      expect(msg).toContain("labels:set []");
+      expect(msg).toContain("comment:add");
+      expect(msg).toContain('weird: "nope"');
+      expect(msg).toContain("summary=");
+      expect(msg).not.toContain("x".repeat(300));
+      expect(msg).not.toContain("New\ninjected");
+    } finally {
+      delete process.env.JCM_CONFIRM_WRITES;
+    }
+  });
+
+  it("sanitizes keys and renders empty ops in the confirmation summary", async () => {
+    process.env.JCM_CONFIRM_WRITES = "true";
+    try {
+      fetchSpy.mockResolvedValue({ ok: true, status: 204, text: async () => "" });
+      const server = { server: { elicitInput: vi.fn().mockResolvedValue({ action: "accept", content: { confirm: true } }) } } as any;
+      const { handleEditIssue } = await import("../../src/tools/edit-issue.js");
+      await handleEditIssue(
+        client,
+        {
+          issueKey: "PROJ-1",
+          fields: { "bad\nkey\u202e": "v" },
+          update: { labels: [], components: [{}], "x\ny": [{ "ad\nd": 1 }] },
+        },
+        server
+      );
+      const msg: string = server.server.elicitInput.mock.calls[0][0].message;
+      expect(msg).toContain("labels: []");
+      expect(msg).toContain("components: {}");
+      expect(msg).toContain("bad key=");
+      expect(msg).toContain("x y:ad d 1");
+      expect(msg.split("\n\n")[1]).not.toMatch(/[\n\u202e]/);
+    } finally {
+      delete process.env.JCM_CONFIRM_WRITES;
+    }
+  });
 });

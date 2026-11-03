@@ -52,7 +52,7 @@ src/
     ├── get-issue-changelog.ts # Field-change history, oldest first, `since` filter + paging ({entries, truncated})
     ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
-    ├── edit-issue.ts     # Priority 1: Issue field update ({ok, key})
+    ├── edit-issue.ts     # Priority 1: Issue field update + incremental `update` ops ({ok, key})
     ├── transition-issue.ts# Priority 1: Workflow state change
     ├── convert-issue-type.ts # Priority 1: Issue type conversion via async bulk move API + queue poll ({ok, keys, issueType, parentKey})
     ├── add-to-active-sprint.ts # Priority 2: Add issue to active scrum sprint via Agile API ({ok, key, sprintId, sprintName, boardId} | skipped | candidates)
