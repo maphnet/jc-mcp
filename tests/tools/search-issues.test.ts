@@ -61,14 +61,40 @@ describe("jcm_searchIssues", () => {
     const parsed = JSON.parse(result);
     expect(parsed.total).toBe(2);
     expect(parsed.issues).toEqual([
-      { key: "TEST-1", summary: "First issue", status: "Open", assignee: "Alice", updated: "", updatedJql: null },
-      { key: "TEST-2", summary: "Second issue", status: "Done", assignee: null, updated: "", updatedJql: null },
+      { key: "TEST-1", summary: "First issue", status: "Open", assignee: "Alice", type: "", parent: null, updated: "", updatedJql: null },
+      { key: "TEST-2", summary: "Second issue", status: "Done", assignee: null, type: "", parent: null, updated: "", updatedJql: null },
     ]);
 
     // Verify it used the /search/jql endpoint with selective fields
     const [url] = fetchSpy.mock.calls[0];
     expect(url).toContain("/rest/api/3/search/jql");
     expect(url).toContain("fields=summary");
+  });
+
+  it("returns type and lean parent for Epic parent, no parent, sub-task of Task, and parent without fields", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        total: 4,
+        issues: [
+          { key: "T-1", fields: { issuetype: { name: "Story" }, parent: { key: "T-100", fields: { summary: "Epic one", issuetype: { name: "Epic" }, status: { name: "Open" } } } } },
+          { key: "T-2", fields: { issuetype: { name: "Task" } } },
+          { key: "T-3", fields: { issuetype: { name: "Sub-task" }, parent: { key: "T-2", fields: { summary: "A task", issuetype: { name: "Task" } } } } },
+          { key: "T-4", fields: { issuetype: { name: "Story" }, parent: { key: "T-9" } } },
+        ],
+      }),
+    });
+    const { handleSearchIssues } = await import("../../src/tools/search-issues.js");
+    const parsed = JSON.parse(await handleSearchIssues(client, { jql: "project = T" }));
+    expect(parsed.issues.map((i: any) => [i.type, i.parent])).toEqual([
+      ["Story", { key: "T-100", summary: "Epic one", type: "Epic" }],
+      ["Task", null],
+      ["Sub-task", { key: "T-2", summary: "A task", type: "Task" }],
+      ["Story", { key: "T-9", summary: "", type: "" }],
+    ]);
+    const fields = new URL(fetchSpy.mock.calls[0][0]).searchParams.get("fields")?.split(",");
+    expect(fields).toContain("issuetype");
+    expect(fields).toContain("parent");
   });
 
   describe("zero-result validation", () => {

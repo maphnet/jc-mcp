@@ -3,12 +3,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import { adfToMarkdown } from "../adf-to-markdown.js";
 import type { LeanIssue, LeanComment } from "../types.js";
+import { toLeanParent } from "../lean-parent.js";
 
 const ISSUE_FIELDS = [
   "summary",
   "description",
   "status",
   "issuetype",
+  "parent",
   "priority",
   "assignee",
   "reporter",
@@ -56,6 +58,7 @@ export async function handleGetIssue(
       : null,
     status: fields.status?.name ?? "",
     type: fields.issuetype?.name ?? "",
+    parent: toLeanParent(fields.parent),
     priority: fields.priority?.name ?? "",
     assignee: fields.assignee?.displayName ?? null,
     reporter: fields.reporter
@@ -83,7 +86,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issue",
       description:
-        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, priority, assignee, reporter ({displayName, accountId} or null), labels, updated (ISO), updatedJql (updated floored to the minute in your Jira timezone, for JQL `updated > \"...\"` polling; at-least-once, dedupe; null if unavailable), comments (id, author, authorAccountId, body, created, updated), attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
+        "Fetch a Jira issue by key. Returns lean fields: key, summary, description (markdown), status, type, parent ({key, summary, type} or null), priority, assignee, reporter ({displayName, accountId} or null), labels, updated (ISO), updatedJql (updated floored to the minute in your Jira timezone, for JQL `updated > \"...\"` polling; at-least-once, dedupe; null if unavailable), comments (id, author, authorAccountId, body, created, updated), attachments (id, filename, mimeType, size, content URL). Attachment content URLs require Jira authentication.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

@@ -1,9 +1,16 @@
+export interface LeanParent {
+  key: string;
+  summary: string;
+  type: string;
+}
+
 export interface LeanIssue {
   key: string;
   summary: string;
   description: string | null;
   status: string;
   type: string;
+  parent: LeanParent | null;
   priority: string;
   assignee: string | null;
   reporter: { displayName: string; accountId: string } | null;
@@ -55,6 +62,8 @@ export interface LeanSearchResult {
   key: string;
   summary: string;
   status: string;
+  type: string;
+  parent: LeanParent | null;
   assignee: string | null;
   updated: string;
   updatedJql: string | null;
