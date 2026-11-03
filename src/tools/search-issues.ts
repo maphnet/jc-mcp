@@ -2,8 +2,9 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { AtlassianClient } from "../client.js";
 import type { LeanSearchResult } from "../types.js";
+import { toLeanParent } from "../lean-parent.js";
 
-const SEARCH_FIELDS = "summary,status,assignee,updated";
+const SEARCH_FIELDS = "summary,status,assignee,updated,issuetype,parent";
 
 const inputSchema = z.object({
   jql: z.string().describe("JQL query string"),
@@ -52,6 +53,8 @@ export async function handleSearchIssues(
         key: issue.key,
         summary: issue.fields?.summary ?? "",
         status: issue.fields?.status?.name ?? "",
+        type: issue.fields?.issuetype?.name ?? "",
+        parent: toLeanParent(issue.fields?.parent),
         assignee: issue.fields?.assignee?.displayName ?? null,
         updated,
         updatedJql: await client.toJqlDate(updated),
@@ -68,7 +71,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Search Jira Issues",
       description:
-        "Search Jira issues using JQL. Returns {total, issues: [{key, summary, status, assignee, updated, updatedJql}]}. updatedJql is the issue's updated time floored to the minute in your Jira timezone; poll with `key = X AND updated > \"<updatedJql>\"` (at-least-once, dedupe). Zero results are validated: invalid JQL values (unknown issue type, missing parent, etc.) return an error instead of an empty list.",
+        "Search Jira issues using JQL. Returns {total, issues: [{key, summary, status, type, parent, assignee, updated, updatedJql}]}. parent is {key, summary, type} or null. updatedJql is the issue's updated time floored to the minute in your Jira timezone; poll with `key = X AND updated > \"<updatedJql>\"` (at-least-once, dedupe). Zero results are validated: invalid JQL values (unknown issue type, missing parent, etc.) return an error instead of an empty list.",
       inputSchema,
       annotations: {
         readOnlyHint: true,

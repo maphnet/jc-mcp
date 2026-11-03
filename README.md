@@ -46,7 +46,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 
 | Tool | Description | Returns |
 |------|-------------|---------|
-| `jcm_getIssue` | Read a Jira issue | Flat fields (incl. `reporter` `{displayName, accountId}` or `null`) + markdown description + attachments + `updated`/`updatedJql`; comments carry `id`, `authorAccountId`, `updated` |
+| `jcm_getIssue` | Read a Jira issue | Flat fields (incl. `reporter` `{displayName, accountId}` or `null`, `parent` `{key, summary, type}` or `null`) + markdown description + attachments + `updated`/`updatedJql`; comments carry `id`, `authorAccountId`, `updated` |
 | `jcm_getIssueChangelog` | Field-change history, oldest first, optionally after `since` | `{entries: [{id, authorAccountId, author, created, items: [{field, from, to}]}], truncated}` |
 | `jcm_getAttachmentDownloadLink` | Resolve a temporary attachment download URL on demand | `{attachmentId, filename, url, temporary: true}` |
 | `jcm_getTransitions` | Available workflow transitions | `[{id, name}]` |
@@ -55,7 +55,7 @@ Then restart your MCP client (Claude Code, Cursor, etc.) to pick up the new vers
 | `jcm_addToActiveSprint` | Add an issue to its project's active scrum sprint (no-op if already in one or no scrum board; returns candidates if ambiguous; pass `boardId` when several scrum boards exist) | `{ok, key, sprintId, sprintName, boardId}` or `{ok, skipped}` / `{ok: false, reason, candidates}` |
 | `jcm_createIssue` | Create a new issue | `{key, url}` |
 | `jcm_addComment` | Add a comment (plain text) | `{ok, id}` |
-| `jcm_searchIssues` | JQL search | `{total, issues: [{key, summary, status, assignee, updated, updatedJql}]}` |
+| `jcm_searchIssues` | JQL search | `{total, issues: [{key, summary, status, type, parent, assignee, updated, updatedJql}]}` |
 | `jcm_getCurrentUser` | Get the authenticated user | `{accountId, displayName, email, active}` |
 | `jcm_lookupUser` | Find a user by email | `[{accountId, displayName, email, active}]` |
 | `jcm_createVersion` | Create a release version | `{id, name}` |
@@ -104,7 +104,7 @@ Standard Atlassian MCP servers return raw API responses — deeply nested JSON w
 | Get transitions | ~17 tokens | ~313 tokens | **95%** |
 
 - **Flat fields**: `status: "In Progress"` instead of nested `status.name` + `statusCategory` + `self` links + `iconUrl`
-- **Lean search results**: `{key, summary, status, assignee, updated, updatedJql}` per issue — no descriptions, avatars, or project metadata
+- **Lean search results**: `{key, summary, status, type, parent, assignee, updated, updatedJql}` per issue (`parent` is `{key, summary, type}` or `null`) — no descriptions, avatars, or project metadata
 - **Minimal writes**: `{ok: true, key: "PROJ-1"}` — no re-fetch
 
 Less tokens = faster responses, lower cost, more room in the context window.

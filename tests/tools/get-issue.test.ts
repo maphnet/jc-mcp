@@ -114,6 +114,22 @@ describe("jcm_getIssue", () => {
     expect(parsed.fields).toBeUndefined();
   });
 
+  it.each([
+    ["Epic parent", { key: "TEST-100", fields: { summary: "Epic one", issuetype: { name: "Epic" } } }, { key: "TEST-100", summary: "Epic one", type: "Epic" }],
+    ["no parent", undefined, null],
+    ["sub-task of a Task", { key: "TEST-2", fields: { summary: "A task", issuetype: { name: "Task" } } }, { key: "TEST-2", summary: "A task", type: "Task" }],
+    ["parent without fields", { key: "TEST-9" }, { key: "TEST-9", summary: "", type: "" }],
+  ])("maps parent: %s", async (_name, parent, expected) => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...jiraIssueResponse, fields: { ...jiraIssueResponse.fields, parent } }),
+    });
+    const { handleGetIssue } = await import("../../src/tools/get-issue.js");
+    const parsed = JSON.parse(await handleGetIssue(client, { issueKey: "TEST-1" }));
+    expect(parsed.parent).toEqual(expected);
+    expect(new URL(fetchSpy.mock.calls[0][0]).searchParams.get("fields")?.split(",")).toContain("parent");
+  });
+
   it("returns reporter null when Jira returns no reporter", async () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,

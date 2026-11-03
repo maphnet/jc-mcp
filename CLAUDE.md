@@ -46,8 +46,9 @@ src/
 ├── adf-to-markdown.ts    # ADF + Confluence storage format → markdown converter
 ├── markdown-to-adf.ts        # Markdown → ADF (Jira) & XHTML storage (Confluence) converter
 ├── types.ts              # Lean response type definitions
+├── lean-parent.ts        # toLeanParent: Jira parent → {key, summary, type} | null (shared by getIssue/searchIssues)
 └── tools/                # One file per MCP tool (24 tools total)
-    ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown)
+    ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown, incl. parent)
     ├── get-issue-changelog.ts # Field-change history, oldest first, `since` filter + paging ({entries, truncated})
     ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])
@@ -57,7 +58,7 @@ src/
     ├── add-to-active-sprint.ts # Priority 2: Add issue to active scrum sprint via Agile API ({ok, key, sprintId, sprintName, boardId} | skipped | candidates)
     ├── create-issue.ts   # Priority 2: Issue creation ({key, url})
     ├── add-comment.ts    # Priority 2: Comment (markdown → ADF)
-    ├── search-issues.ts  # Priority 2: JQL search (lean results; zero results → jql/parse, invalid JQL throws)
+    ├── search-issues.ts  # Priority 2: JQL search (lean results incl. type + parent; zero results → jql/parse, invalid JQL throws)
     ├── get-current-user.ts # User info: authenticated user ({accountId, displayName, email, active})
     ├── lookup-user.ts    # User lookup: find user by email ([{accountId, displayName, email, active}])
     ├── create-version.ts # Version management: create release ({id, name})
