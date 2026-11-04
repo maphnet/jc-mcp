@@ -54,6 +54,37 @@ describe("loadConfig", () => {
     await expect(loadConfig()).rejects.toThrow("ATLASSIAN_CLOUD_ID");
   });
 
+  it("surfaces the underlying network error and keeps the cause", async () => {
+    process.env.ATLASSIAN_URL = "https://test.atlassian.net";
+    process.env.ATLASSIAN_EMAIL = "a@b.com";
+    process.env.ATLASSIAN_TOKEN = "tok";
+
+    const cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:12334"), {
+      code: "ECONNREFUSED",
+    });
+    const fetchError = new TypeError("fetch failed", { cause });
+    vi.mocked(fetch).mockRejectedValueOnce(fetchError);
+
+    const err = await loadConfig().catch((e) => e);
+    expect(err.message).toContain("ECONNREFUSED 127.0.0.1:12334");
+    expect(err.message).not.toContain("within 10s");
+    expect(err.message).toContain("ATLASSIAN_CLOUD_ID");
+    expect(err.cause).toBe(fetchError);
+  });
+
+  it("reports a 10s timeout only for TimeoutError", async () => {
+    process.env.ATLASSIAN_URL = "https://test.atlassian.net";
+    process.env.ATLASSIAN_EMAIL = "a@b.com";
+    process.env.ATLASSIAN_TOKEN = "tok";
+
+    const timeout = new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    vi.mocked(fetch).mockRejectedValueOnce(timeout);
+
+    const err = await loadConfig().catch((e) => e);
+    expect(err.message).toContain("within 10s");
+    expect(err.cause).toBe(timeout);
+  });
+
   it("throws when response is 200 but cloudId field is missing", async () => {
     process.env.ATLASSIAN_URL = "https://test.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "a@b.com";

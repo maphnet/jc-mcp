@@ -12,14 +12,28 @@ export interface Config {
   cloudId: string;
 }
 
+// Node's fetch wraps the real reason (e.g. ECONNREFUSED) in `error.cause`.
+function describeFetchError(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const source = cause instanceof Error ? cause : error;
+  const code = (source as { code?: unknown } | null)?.code;
+  const message = source instanceof Error ? source.message : String(source);
+  return typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
+}
+
 async function discoverCloudId(siteUrl: string): Promise<string> {
   const url = `${siteUrl}/_edge/tenant_info`;
   let response: Response;
   try {
     response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   } catch (error) {
+    const reason =
+      error instanceof Error && error.name === "TimeoutError"
+        ? "within 10s"
+        : describeFetchError(error);
     throw new Error(
-      `Could not reach ${url} within 10s. Check ATLASSIAN_URL or set ATLASSIAN_CLOUD_ID manually.`
+      `Could not reach ${url} (${reason}). Check ATLASSIAN_URL or set ATLASSIAN_CLOUD_ID manually.`,
+      { cause: error }
     );
   }
   if (!response.ok) {
