@@ -72,6 +72,25 @@ describe("loadConfig", () => {
     expect(err.cause).toBe(fetchError);
   });
 
+  it("joins per-address messages from an AggregateError cause", async () => {
+    process.env.ATLASSIAN_URL = "https://test.atlassian.net";
+    process.env.ATLASSIAN_EMAIL = "a@b.com";
+    process.env.ATLASSIAN_TOKEN = "tok";
+
+    const cause = Object.assign(
+      new AggregateError(
+        [new Error("connect ECONNREFUSED ::1:12334"), new Error("connect ECONNREFUSED 127.0.0.1:12334")],
+        ""
+      ),
+      { code: "ECONNREFUSED" }
+    );
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError("fetch failed", { cause }));
+
+    const err = await loadConfig().catch((e) => e);
+    expect(err.message).toContain("127.0.0.1:12334");
+    expect(err.message).not.toContain("ECONNREFUSED )");
+  });
+
   it("reports a 10s timeout only for TimeoutError", async () => {
     process.env.ATLASSIAN_URL = "https://test.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "a@b.com";

@@ -17,8 +17,14 @@ function describeFetchError(error: unknown): string {
   const cause = error instanceof Error ? error.cause : undefined;
   const source = cause instanceof Error ? cause : error;
   const code = (source as { code?: unknown } | null)?.code;
-  const message = source instanceof Error ? source.message : String(source);
-  return typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
+  let message = source instanceof Error ? source.message : String(source);
+  // AggregateError (autoSelectFamily) has an empty message; the addresses live in `errors`.
+  const errors = (source as { errors?: unknown } | null)?.errors;
+  if (!message && Array.isArray(errors)) {
+    message = errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
+  }
+  message = message.trim() || (error instanceof Error ? error.message : "");
+  return typeof code === "string" && !message.includes(code) ? `${code} ${message}`.trim() : message;
 }
 
 async function discoverCloudId(siteUrl: string): Promise<string> {
