@@ -210,4 +210,24 @@ describe("jcm_getIssues", () => {
     expect(res[1].error).toMatch(/500/);
     expect(res[1].error).not.toBe("not found or no access");
   });
+
+  it("caps concurrent fallback GETs", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => ({ issues: [] }) });
+    fetchSpy.mockImplementation(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return { ok: false, status: 404, text: async () => "nope" };
+    });
+    const issueKeys = Array.from({ length: 20 }, (_, i) => `A-${i + 1}`);
+
+    const res = JSON.parse(await handleGetIssues(client, { issueKeys }));
+
+    expect(res).toHaveLength(20);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(5);
+  });
 });

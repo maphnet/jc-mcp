@@ -5,6 +5,7 @@ import { adfToMarkdown } from "../adf-to-markdown.js";
 import { toLeanParent } from "../lean-parent.js";
 
 const MAX_COMMENTS = 3;
+const FALLBACK_CONCURRENCY = 5;
 const DEFAULT_DESCRIPTION_CHARS = 600;
 const DEFAULT_COMMENT_CHARS = 300;
 const NOT_FOUND = "not found or no access";
@@ -110,11 +111,11 @@ export async function handleGetIssues(
   };
 
   // Search omits missing and moved keys; resolve each by direct GET (404 = missing or forbidden).
-  // ponytail: no concurrency cap (up to 50 GETs); add one if rate limits are hit.
   const missing = keys.filter((k) => !byKey.has(k));
   const resolved = new Map<string, any>();
-  await Promise.all(
-    missing.map(async (key) => {
+  const queue = [...missing];
+  const worker = async () => {
+    for (let key = queue.shift(); key !== undefined; key = queue.shift()) {
       try {
         resolved.set(
           key,
@@ -124,8 +125,9 @@ export async function handleGetIssues(
         const message = e instanceof Error ? e.message : String(e);
         resolved.set(key, { error: /^Jira API error 404\b/.test(message) ? NOT_FOUND : message });
       }
-    })
-  );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(FALLBACK_CONCURRENCY, queue.length) }, worker));
 
   const entries = keys.map((key) => {
     const issue = byKey.get(key) ?? resolved.get(key);
