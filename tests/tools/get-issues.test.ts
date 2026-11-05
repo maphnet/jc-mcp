@@ -158,4 +158,17 @@ describe("jcm_getIssues", () => {
     expect(a.description).toBe("hello… [truncated, 11 chars total]");
     expect(a).not.toHaveProperty("comments");
   });
+
+  it("follows nextPageToken so issues on later pages are not reported missing", async () => {
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ issues: [{ key: "A-1", fields: { summary: "One" } }], nextPageToken: "tok" }),
+    });
+    jiraReturns([{ key: "A-2", fields: { summary: "Two" } }]);
+
+    const res = JSON.parse(await handleGetIssues(client, { issueKeys: ["A-1", "A-2"] }));
+
+    expect(res.map((e: any) => e.summary)).toEqual(["One", "Two"]);
+    expect(new URL(String(fetchSpy.mock.calls[1][0])).searchParams.get("nextPageToken")).toBe("tok");
+  });
 });

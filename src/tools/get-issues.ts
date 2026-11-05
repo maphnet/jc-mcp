@@ -57,13 +57,25 @@ export async function handleGetIssues(
 
   // Keys are regex-validated, so they are safe to inline unquoted in JQL.
   // Search silently omits missing/forbidden keys (HTTP 200); errors are synthesized below.
-  const raw = await client.jiraGet<{ issues?: any[] }>("/rest/api/3/search/jql", {
-    jql: `key in (${keys.join(", ")})`,
-    fields: fields.join(","),
-    maxResults: "50",
-  });
-
-  const byKey = new Map<string, any>((raw.issues ?? []).map((issue: any) => [issue.key, issue]));
+  const byKey = new Map<string, any>();
+  let nextPageToken: string | undefined;
+  // Follow continuation tokens so a short page never turns found keys into "not found".
+  for (let page = 0; page < 50; page++) {
+    const params: Record<string, string> = {
+      jql: `key in (${keys.join(", ")})`,
+      fields: fields.join(","),
+      maxResults: "50",
+    };
+    if (nextPageToken) params.nextPageToken = nextPageToken;
+    const raw = await client.jiraGet<{ issues?: any[]; nextPageToken?: string }>(
+      "/rest/api/3/search/jql",
+      params
+    );
+    for (const issue of raw.issues ?? []) byKey.set(issue.key, issue);
+    nextPageToken = raw.nextPageToken;
+    if (!nextPageToken) break;
+  }
+  if (nextPageToken) throw new Error("Jira search did not finish paging; result would be incomplete");
 
   const entries = keys.map((key) => {
     const issue = byKey.get(key);
