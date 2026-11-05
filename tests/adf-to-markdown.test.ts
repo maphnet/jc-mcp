@@ -366,6 +366,25 @@ describe("adfToMarkdown task lists", () => {
 });
 
 describe("storageToMarkdown tables", () => {
+  it("keeps later values in their column with colspan and rowspan", () => {
+    const html =
+      "<table><tr><th>A</th><th>B</th><th>C</th></tr>" +
+      '<tr><td colspan="2">x</td><td>y</td></tr>' +
+      '<tr><td rowspan="2">p</td><td>q</td><td>r</td></tr><tr><td>s</td><td>t</td></tr></table>';
+    expect(storageToMarkdown(html)).toBe(
+      "| A | B | C |\n| --- | --- | --- |\n| x |  | y |\n| p | q | r |\n|  | s | t |",
+    );
+  });
+
+  it("converts nested tables without cutting the outer table", () => {
+    const html =
+      "<table><tr><th>H</th><th>I</th></tr><tr><td><table><tr><td>n</td></tr></table></td><td>after</td></tr></table>";
+    const out = storageToMarkdown(html);
+    expect(out).toContain("| after |");
+    expect(out).not.toContain("<");
+    expect(out.split("\n")).toHaveLength(3);
+  });
+
   it("converts editor markup with attributes, colgroup, thead, p, empty and short rows", () => {
     const html =
       '<table class="x"><colgroup><col /><col /></colgroup><thead><tr><th><p>A</p></th><th colspan="1">B</th></tr></thead>' +

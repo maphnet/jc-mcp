@@ -208,7 +208,13 @@ export function storageToMarkdown(html: string): string {
   if (!html) return "";
 
   // Tables first, as single-line pipe rows
-  let md = html.replace(/<table(?:\s[^>]*)?>(.*?)<\/table>/gis, (_, inner) => tableToMarkdown(inner));
+  // Innermost first, so nested tables don't cut the outer one at the first </table>
+  const innermost = /<table(?:\s[^>]*)?>((?:(?!<table[\s>]).)*?)<\/table>/gis;
+  let md = html;
+  for (let prev = ""; prev !== md; ) {
+    prev = md;
+    md = md.replace(innermost, (_, inner) => tableToMarkdown(inner));
+  }
 
   // Block elements — add newlines
   md = md.replace(/<h([1-6])[^>]*>(.*?)<\/h[1-6]>/gis, (_, level, content) => {
@@ -257,14 +263,32 @@ function storageInline(s: string): string {
 
 /** Storage table body -> GFM pipe table; first row is the header. Cell <p>/<li>/<div>/<h1-6>/<br> are joined with a space. */
 function tableToMarkdown(inner: string): string {
-  const rows = [...inner.matchAll(/<tr(?:\s[^>]*)?>(.*?)<\/tr>/gis)].map((r) =>
-    [...r[1].matchAll(/<(td|th)(?:\s[^>]*)?>(.*?)<\/\1>/gis)].map((c) =>
-      stripTags(storageInline(c[2].replace(/<\/(?:p|li|div|h[1-6])>|<br\s*\/?>/gi, " ")))
-        .replace(/\s+/g, " ")
-        .trim()
-        .replace(/\|/g, "\\|"),
-    ),
-  );
+  const pending: number[] = []; // per column: rows still covered by an earlier rowspan
+  const rows = [...inner.matchAll(/<tr(?:\s[^>]*)?>(.*?)<\/tr>/gis)].map((r) => {
+    const row: string[] = [];
+    const skipCovered = () => {
+      while (pending[row.length] > 0) {
+        pending[row.length]--;
+        row.push("");
+      }
+    };
+    for (const c of r[1].matchAll(/<(td|th)(\s[^>]*)?>(.*?)<\/\1>/gis)) {
+      skipCovered();
+      const span = (name: string) => Math.max(1, Number(new RegExp(`\\b${name}\\s*=\\s*["']?(\\d+)`, "i").exec(c[2] ?? "")?.[1]) || 1);
+      const col = row.length;
+      row.push(
+        stripTags(storageInline(c[3].replace(/<\/(?:p|li|div|h[1-6])>|<br\s*\/?>/gi, " ")))
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\|/g, "\\|"),
+      );
+      for (let i = 1; i < span("colspan"); i++) row.push("");
+      const rs = span("rowspan");
+      for (let i = col; i < row.length; i++) pending[i] = rs - 1;
+    }
+    skipCovered();
+    return row;
+  });
   const cols = Math.max(0, ...rows.map((r) => r.length));
   if (cols === 0) return "";
   const lines = rows.map((r) => {
