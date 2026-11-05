@@ -421,4 +421,9 @@ describe("storageToMarkdown tables", () => {
     const md = "| A | B |\n| --- | --- |\n| **x** | `a\\|b` |\n| 1 |  |";
     expect(storageToMarkdown(markdownToStorage(md))).toBe(md);
   });
+
+  it("returns empty string for an empty table", () => {
+    expect(storageToMarkdown("<table></table>")).toBe("");
+    expect(storageToMarkdown("<p>a</p><table></table><p>b</p>")).toBe("a\n\nb");
+  });
 });
