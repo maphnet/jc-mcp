@@ -409,6 +409,11 @@ describe("storageToMarkdown tables", () => {
     expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a b `x    y\\|z` c d `p q` |");
   });
 
+  it("treats CRLF inside code in cells as one space", () => {
+    const html = "<table><tr><th>h</th></tr><tr><td><code>p\r\nq  r</code></td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| `p q  r` |");
+  });
+
   it("separates list items, divs and headings inside a cell", () => {
     const html =
       "<table><tr><th>h</th></tr><tr><td><ul><li>a</li><li>b</li></ul><div>c</div><h2>d</h2></td></tr></table>";
