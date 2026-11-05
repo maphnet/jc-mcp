@@ -19,8 +19,9 @@ describe("createServer", () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
 
-    expect(names).toHaveLength(24);
+    expect(names).toHaveLength(25);
     expect(names).toContain("jcm_getIssue");
+    expect(names).toContain("jcm_getIssues");
     expect(names).toContain("jcm_addToActiveSprint");
     expect(names).toContain("jcm_getIssueChangelog");
     expect(names).toContain("jcm_getAttachmentDownloadLink");
