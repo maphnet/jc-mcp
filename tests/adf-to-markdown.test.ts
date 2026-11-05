@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { adfToMarkdown, storageToMarkdown } from "../src/adf-to-markdown.js";
+import { markdownToStorage } from "../src/markdown-to-adf.js";
 
 describe("adfToMarkdown", () => {
   it("converts a simple paragraph", () => {
@@ -361,5 +362,63 @@ describe("adfToMarkdown task lists", () => {
       ],
     };
     expect(adfToMarkdown(adf)).toBe("- [ ] first\n\n  # not a heading\n- [ ] next");
+  });
+});
+
+describe("storageToMarkdown tables", () => {
+  it("keeps later values in their column with colspan and rowspan", () => {
+    const html =
+      "<table><tr><th>A</th><th>B</th><th>C</th></tr>" +
+      '<tr><td colspan="2">x</td><td>y</td></tr>' +
+      '<tr><td rowspan="2">p</td><td>q</td><td>r</td></tr><tr><td>s</td><td>t</td></tr></table>';
+    expect(storageToMarkdown(html)).toBe(
+      "| A | B | C |\n| --- | --- | --- |\n| x |  | y |\n| p | q | r |\n|  | s | t |",
+    );
+  });
+
+  it("converts nested tables without cutting the outer table", () => {
+    const html =
+      "<table><tr><th>H</th><th>I</th></tr><tr><td><table><tr><td>n</td></tr></table></td><td>after</td></tr></table>";
+    const out = storageToMarkdown(html);
+    expect(out).toContain("| after |");
+    expect(out).not.toContain("<");
+    expect(out.split("\n")).toHaveLength(3);
+  });
+
+  it("converts editor markup with attributes, colgroup, thead, p, empty and short rows", () => {
+    const html =
+      '<table class="x"><colgroup><col /><col /></colgroup><thead><tr><th><p>A</p></th><th colspan="1">B</th></tr></thead>' +
+      '<tbody><tr><td><p>1</p></td><td></td></tr><tr><td>only</td></tr></tbody></table>';
+    expect(storageToMarkdown(html)).toBe("| A | B |\n| --- | --- |\n| 1 |  |\n| only |  |");
+  });
+
+  it("pads short rows to the widest row", () => {
+    const html = "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td><td>d</td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| a |  |  |\n| --- | --- | --- |\n| b | c | d |");
+  });
+
+  it("escapes pipes, including in code, and joins p/br with a space", () => {
+    const html =
+      "<table><tr><th>h</th></tr><tr><td><p>a|b</p><p>c</p>d<br/>e <code>x|y</code></td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a\\|b c d e `x\\|y` |");
+  });
+
+  it("separates list items, divs and headings inside a cell", () => {
+    const html =
+      "<table><tr><th>h</th></tr><tr><td><ul><li>a</li><li>b</li></ul><div>c</div><h2>d</h2></td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a b c d |");
+  });
+
+  it("converts inline formatting in cells and keeps surrounding text", () => {
+    const html =
+      '<p>before</p><table><tr><th>h</th></tr><tr><td><strong>b</strong> <em>i</em> <a href="http://u">l</a></td></tr></table><p>after</p>';
+    expect(storageToMarkdown(html)).toBe(
+      "before\n\n| h |\n| --- |\n| **b** *i* [l](http://u) |\n\nafter",
+    );
+  });
+
+  it("round-trips a markdown table through markdownToStorage", () => {
+    const md = "| A | B |\n| --- | --- |\n| **x** | `a\\|b` |\n| 1 |  |";
+    expect(storageToMarkdown(markdownToStorage(md))).toBe(md);
   });
 });

@@ -202,12 +202,19 @@ function applyMark(text: string, mark: AdfMark): string {
 
 /**
  * Convert Confluence storage format (XHTML) to simple markdown.
- * Handles common tags: p, strong, em, code, h1-h6, ul, ol, li, a, br.
+ * Handles common tags: p, strong, em, code, h1-h6, ul, ol, li, a, br, table (GFM pipe table).
  */
 export function storageToMarkdown(html: string): string {
   if (!html) return "";
 
+  // Tables first, as single-line pipe rows
+  // Innermost first, so nested tables don't cut the outer one at the first </table>
+  const innermost = /<table(?:\s[^>]*)?>((?:(?!<table[\s>]).)*?)<\/table>/gis;
   let md = html;
+  for (let prev = ""; prev !== md; ) {
+    prev = md;
+    md = md.replace(innermost, (_, inner) => tableToMarkdown(inner));
+  }
 
   // Block elements — add newlines
   md = md.replace(/<h([1-6])[^>]*>(.*?)<\/h[1-6]>/gis, (_, level, content) => {
@@ -217,19 +224,7 @@ export function storageToMarkdown(html: string): string {
   // Paragraphs (before <br/> so block structure is preserved)
   md = md.replace(/<p[^>]*>(.*?)<\/p>/gis, "$1\n\n");
 
-  // Bold
-  md = md.replace(/<strong>(.*?)<\/strong>/gis, "**$1**");
-  md = md.replace(/<b>(.*?)<\/b>/gis, "**$1**");
-
-  // Italic
-  md = md.replace(/<em>(.*?)<\/em>/gis, "*$1*");
-  md = md.replace(/<i>(.*?)<\/i>/gis, "*$1*");
-
-  // Inline code
-  md = md.replace(/<code>(.*?)<\/code>/gis, "`$1`");
-
-  // Links
-  md = md.replace(/<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gis, "[$2]($1)");
+  md = storageInline(md);
 
   // Line breaks
   md = md.replace(/<br\s*\/?>/gi, "\n");
@@ -253,6 +248,55 @@ export function storageToMarkdown(html: string): string {
   md = md.replace(/\n{3,}/g, "\n\n").trim();
 
   return md;
+}
+
+/** Bold, italic, inline code and links (shared by body text and table cells). */
+function storageInline(s: string): string {
+  return s
+    .replace(/<strong>(.*?)<\/strong>/gis, "**$1**")
+    .replace(/<b>(.*?)<\/b>/gis, "**$1**")
+    .replace(/<em>(.*?)<\/em>/gis, "*$1*")
+    .replace(/<i>(.*?)<\/i>/gis, "*$1*")
+    .replace(/<code>(.*?)<\/code>/gis, "`$1`")
+    .replace(/<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gis, "[$2]($1)");
+}
+
+/** Storage table body -> GFM pipe table; first row is the header. Cell <p>/<li>/<div>/<h1-6>/<br> are joined with a space. */
+function tableToMarkdown(inner: string): string {
+  const pending: number[] = []; // per column: rows still covered by an earlier rowspan
+  const rows = [...inner.matchAll(/<tr(?:\s[^>]*)?>(.*?)<\/tr>/gis)].map((r) => {
+    const row: string[] = [];
+    const skipCovered = () => {
+      while (pending[row.length] > 0) {
+        pending[row.length]--;
+        row.push("");
+      }
+    };
+    for (const c of r[1].matchAll(/<(td|th)(\s[^>]*)?>(.*?)<\/\1>/gis)) {
+      skipCovered();
+      const span = (name: string) => Math.max(1, Number(new RegExp(`\\b${name}\\s*=\\s*["']?(\\d+)`, "i").exec(c[2] ?? "")?.[1]) || 1);
+      const col = row.length;
+      row.push(
+        stripTags(storageInline(c[3].replace(/<\/(?:p|li|div|h[1-6])>|<br\s*\/?>/gi, " ")))
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\|/g, "\\|"),
+      );
+      for (let i = 1; i < span("colspan"); i++) row.push("");
+      const rs = span("rowspan");
+      for (let i = col; i < row.length; i++) pending[i] = rs - 1;
+    }
+    skipCovered();
+    return row;
+  });
+  const cols = Math.max(0, ...rows.map((r) => r.length));
+  if (cols === 0) return "";
+  const lines = rows.map((r) => {
+    const cells = Array.from({ length: cols }, (_, i) => r[i] ?? "");
+    return `| ${cells.join(" | ")} |`;
+  });
+  lines.splice(1, 0, `|${" --- |".repeat(cols)}`);
+  return `\n\n${lines.join("\n")}\n\n`;
 }
 
 function stripTags(html: string): string {
