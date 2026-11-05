@@ -5,8 +5,8 @@ import { adfToMarkdown } from "../adf-to-markdown.js";
 import { toLeanParent } from "../lean-parent.js";
 
 const MAX_COMMENTS = 3;
-const DEFAULT_DESCRIPTION_CHARS = 1000;
-const DEFAULT_COMMENT_CHARS = 400;
+const DEFAULT_DESCRIPTION_CHARS = 600;
+const DEFAULT_COMMENT_CHARS = 300;
 const NOT_FOUND = "not found, no access, or moved";
 
 const inputSchema = z.object({

@@ -125,13 +125,13 @@ describe("jcm_getIssues", () => {
 
     const [a, b] = JSON.parse(await handleGetIssues(client, { issueKeys: ["A-1", "B-2"] }));
 
-    expect(a.description).toBe("d".repeat(1000) + "… [truncated, 1500 chars total]");
+    expect(a.description).toBe("d".repeat(600) + "… [truncated, 1500 chars total]");
     expect(a.comments).toEqual([
       { author: "User 3", body: "c3", created: "2026-11-03T10:00:00.000+0000" },
       { author: "User 4", body: "c4", created: "2026-11-04T10:00:00.000+0000" },
       {
         author: "User 5",
-        body: "b".repeat(400) + "… [truncated, 500 chars total]",
+        body: "b".repeat(300) + "… [truncated, 500 chars total]",
         created: "2026-11-05T10:00:00.000+0000",
       },
     ]);
