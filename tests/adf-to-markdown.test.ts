@@ -384,6 +384,12 @@ describe("storageToMarkdown tables", () => {
     expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a\\|b c d e `x\\|y` |");
   });
 
+  it("separates list items, divs and headings inside a cell", () => {
+    const html =
+      "<table><tr><th>h</th></tr><tr><td><ul><li>a</li><li>b</li></ul><div>c</div><h2>d</h2></td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a b c d |");
+  });
+
   it("converts inline formatting in cells and keeps surrounding text", () => {
     const html =
       '<p>before</p><table><tr><th>h</th></tr><tr><td><strong>b</strong> <em>i</em> <a href="http://u">l</a></td></tr></table><p>after</p>';

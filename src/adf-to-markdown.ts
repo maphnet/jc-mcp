@@ -255,11 +255,11 @@ function storageInline(s: string): string {
     .replace(/<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gis, "[$2]($1)");
 }
 
-/** Storage table body -> GFM pipe table; first row is the header. Cell <p>/<br> are joined with a space. */
+/** Storage table body -> GFM pipe table; first row is the header. Cell <p>/<li>/<div>/<h1-6>/<br> are joined with a space. */
 function tableToMarkdown(inner: string): string {
   const rows = [...inner.matchAll(/<tr(?:\s[^>]*)?>(.*?)<\/tr>/gis)].map((r) =>
     [...r[1].matchAll(/<(td|th)(?:\s[^>]*)?>(.*?)<\/\1>/gis)].map((c) =>
-      stripTags(storageInline(c[2].replace(/<\/p>|<br\s*\/?>/gi, " ")))
+      stripTags(storageInline(c[2].replace(/<\/(?:p|li|div|h[1-6])>|<br\s*\/?>/gi, " ")))
         .replace(/\s+/g, " ")
         .trim()
         .replace(/\|/g, "\\|"),
