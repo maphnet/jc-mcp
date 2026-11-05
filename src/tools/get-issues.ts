@@ -7,7 +7,7 @@ import { toLeanParent } from "../lean-parent.js";
 const MAX_COMMENTS = 3;
 const DEFAULT_DESCRIPTION_CHARS = 600;
 const DEFAULT_COMMENT_CHARS = 300;
-const NOT_FOUND = "not found, no access, or moved";
+const NOT_FOUND = "not found or no access";
 
 const inputSchema = z.object({
   issueKeys: z
@@ -77,10 +77,7 @@ export async function handleGetIssues(
   }
   if (nextPageToken) throw new Error("Jira search did not finish paging; result would be incomplete");
 
-  const entries = keys.map((key) => {
-    const issue = byKey.get(key);
-    if (!issue) return { key, error: NOT_FOUND };
-
+  const buildEntry = (key: string, issue: any) => {
     const f = issue.fields ?? {};
     const entry: Record<string, unknown> = {
       key,
@@ -89,6 +86,8 @@ export async function handleGetIssues(
       status: f.status?.name ?? "",
       parent: toLeanParent(f.parent),
     };
+    // Jira resolves a moved/renamed key on direct GET; keep the requested key and expose the current one.
+    if (issue.key !== key) entry.movedTo = issue.key;
 
     if (want.has("description")) {
       entry.description = f.description ? cap(adfToMarkdown(f.description), maxDescription) : null;
@@ -108,6 +107,29 @@ export async function handleGetIssues(
     }
 
     return entry;
+  };
+
+  // Search omits missing and moved keys; resolve each by direct GET (404 = missing or forbidden).
+  // ponytail: no concurrency cap (up to 50 GETs); add one if rate limits are hit.
+  const missing = keys.filter((k) => !byKey.has(k));
+  const resolved = new Map<string, any>();
+  await Promise.all(
+    missing.map(async (key) => {
+      try {
+        resolved.set(
+          key,
+          await client.jiraGet<any>(`/rest/api/3/issue/${key}`, { fields: fields.join(",") })
+        );
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        resolved.set(key, { error: /^Jira API error 404\b/.test(message) ? NOT_FOUND : message });
+      }
+    })
+  );
+
+  const entries = keys.map((key) => {
+    const issue = byKey.get(key) ?? resolved.get(key);
+    return issue.error ? { key, error: issue.error } : buildEntry(key, issue);
   });
 
   return JSON.stringify(entries);
@@ -119,7 +141,7 @@ export function register(server: McpServer, client: AtlassianClient): void {
     {
       title: "Get Jira Issues (batch)",
       description:
-        `Batch-read up to 50 Jira issues in one call (one JQL search). Returns an array in request order, one entry per unique key: {key, summary, type, status, parent ({key, summary, type} or null), description (markdown or null), comments: [{author, body, created}], commentsTotal?}. fields selects description and/or comments (default both). Descriptions are capped at maxDescriptionChars (default ${DEFAULT_DESCRIPTION_CHARS}), comment bodies at maxCommentChars (default ${DEFAULT_COMMENT_CHARS}); cut text ends with "… [truncated, N chars total]". Only the ${MAX_COMMENTS} most recent comments are returned (oldest first); commentsTotal appears when more exist. A key that is missing, not visible to you, or was moved returns {key, error} instead of being dropped. Use jcm_getIssue for full detail on one issue.`,
+        `Batch-read up to 50 Jira issues in one call (one JQL search, plus one GET per key the search omits). Returns an array in request order, one entry per unique key: {key, summary, type, status, parent ({key, summary, type} or null), description (markdown or null), comments: [{author, body, created}], commentsTotal?}. fields selects description and/or comments (default both). Descriptions are capped at maxDescriptionChars (default ${DEFAULT_DESCRIPTION_CHARS}), comment bodies at maxCommentChars (default ${DEFAULT_COMMENT_CHARS}); cut text ends with "… [truncated, N chars total]". Only the ${MAX_COMMENTS} most recent comments are returned (oldest first); commentsTotal appears when more exist. A key that is missing or not visible to you returns {key, error} instead of being dropped. A moved/renamed key returns the issue under the requested key plus movedTo (current key). Use jcm_getIssue for full detail on one issue.`,
       inputSchema,
       annotations: {
         readOnlyHint: true,
