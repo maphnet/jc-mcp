@@ -278,7 +278,7 @@ function tableToMarkdown(inner: string): string {
       const col = row.length;
       row.push(
         stripTags(storageInline(c[3].replace(/<\/(?:p|li|div|h[1-6])>|<br\s*\/?>/gi, " ")))
-          .replace(/\s+/g, " ")
+          .replace(/(`[^`]*`)|\s+/g, (_, code?: string) => (code ? code.replace(/[^\S ]/g, " ") : " ")) // keep spaces inside code spans; newlines/tabs become one space
           .trim()
           .replace(/\|/g, "\\|"),
       );

@@ -403,6 +403,12 @@ describe("storageToMarkdown tables", () => {
     expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a\\|b c d e `x\\|y` |");
   });
 
+  it("preserves space runs inside code in cells, keeps rows single-line, collapses whitespace outside", () => {
+    const html =
+      "<table><tr><th>h</th></tr><tr><td>a   b <code>x    y|z</code>   c\n\n d <code>p\nq</code></td></tr></table>";
+    expect(storageToMarkdown(html)).toBe("| h |\n| --- |\n| a b `x    y\\|z` c d `p q` |");
+  });
+
   it("separates list items, divs and headings inside a cell", () => {
     const html =
       "<table><tr><th>h</th></tr><tr><td><ul><li>a</li><li>b</li></ul><div>c</div><h2>d</h2></td></tr></table>";
