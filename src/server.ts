@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AtlassianClient } from "./client.js";
 import { register as registerGetIssue } from "./tools/get-issue.js";
+import { register as registerGetIssues } from "./tools/get-issues.js";
 import { register as registerGetIssueChangelog } from "./tools/get-issue-changelog.js";
 import { register as registerGetAttachmentDownloadLink } from "./tools/get-attachment-download-link.js";
 import { register as registerGetTransitions } from "./tools/get-transitions.js";
@@ -43,6 +44,7 @@ export function createServer(client: AtlassianClient): McpServer {
 
   // Priority 1 tools
   registerGetIssue(server, client);
+  registerGetIssues(server, client);
   registerGetIssueChangelog(server, client);
   registerGetAttachmentDownloadLink(server, client);
   registerGetTransitions(server, client);
