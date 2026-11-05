@@ -95,7 +95,8 @@ export async function handleGetIssues(
     }
 
     if (want.has("comments")) {
-      // Jira returns comments oldest-first; keep the most recent ones in that order.
+      // Search embeds the latest comments (capped) in ascending order, so the last MAX_COMMENTS are the newest.
+      // https://community.developer.atlassian.com/t/deprecation-notice-limiting-the-number-of-comments-returned-by-get-issue-rest-api-and-issue-deleted-events/42138
       const all: any[] = f.comment?.comments ?? [];
       const recent = all.slice(-MAX_COMMENTS);
       entry.comments = recent.map((c: any) => ({

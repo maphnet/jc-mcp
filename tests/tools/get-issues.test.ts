@@ -141,6 +141,19 @@ describe("jcm_getIssues", () => {
     expect(b).not.toHaveProperty("commentsTotal");
   });
 
+  it("keeps the last 3 embedded comments and reports the full total when total exceeds the embedded count", async () => {
+    // Jira embeds only the newest comments (ascending); ids 146-150 stand in for them.
+    const embedded = [1, 2, 3, 4, 5].map((n) => ({ ...comment(n), id: String(145 + n) }));
+    jiraReturns([
+      { key: "A-1", fields: { summary: "Alpha", comment: { total: 150, comments: embedded } } },
+    ]);
+
+    const [a] = JSON.parse(await handleGetIssues(client, { issueKeys: ["A-1"] }));
+
+    expect(a.comments.map((c: { body: string }) => c.body)).toEqual(["c3", "c4", "c5"]);
+    expect(a.commentsTotal).toBe(150);
+  });
+
   it("fetches and returns only the selected fields and honours a custom cap", async () => {
     jiraReturns([{ key: "A-1", fields: { summary: "Alpha", description: adf("hello world") } }]);
 
