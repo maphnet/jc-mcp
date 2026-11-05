@@ -49,7 +49,7 @@ src/
 ├── lean-parent.ts        # toLeanParent: Jira parent → {key, summary, type} | null (shared by getIssue/getIssues/searchIssues)
 └── tools/                # One file per MCP tool (25 tools total)
     ├── get-issue.ts      # Priority 1: Jira issue read (flattened, ADF→markdown, incl. parent)
-    ├── get-issues.ts     # Batch read ≤50 keys via one JQL search: request order, {key, error} for omitted keys, capped description/last 3 comments + truncation marker
+    ├── get-issues.ts     # Batch read ≤50 keys via one JQL search plus one fallback GET per omitted key: request order, {key, error} for keys that stay missing, `movedTo` for moved keys, capped description/last 3 comments + truncation marker
     ├── get-issue-changelog.ts # Field-change history, oldest first, `since` filter + paging ({entries, truncated})
     ├── get-attachment-download-link.ts # On-demand temporary Jira attachment URL (no file bytes)
     ├── get-transitions.ts# Priority 1: Workflow transitions ([{id, name}])

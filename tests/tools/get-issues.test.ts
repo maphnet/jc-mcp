@@ -31,6 +31,9 @@ describe("jcm_getIssues", () => {
   const jiraReturns = (issues: unknown[]) =>
     fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => ({ issues }) });
 
+  const jiraFails = (status: number) =>
+    fetchSpy.mockResolvedValueOnce({ ok: false, status, text: async () => "nope" });
+
   const requestUrl = () => new URL(String(fetchSpy.mock.calls[0][0]));
 
   beforeEach(() => {
@@ -43,7 +46,7 @@ describe("jcm_getIssues", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns one entry per unique key in request order, with {key, error} for keys the search omits", async () => {
+  it("returns one entry per unique key in request order, with {key, error} for keys that 404 on fallback", async () => {
     jiraReturns([
       {
         key: "A-1",
@@ -67,6 +70,7 @@ describe("jcm_getIssues", () => {
         },
       },
     ]);
+    jiraFails(404);
 
     const result = JSON.parse(
       await handleGetIssues(client, { issueKeys: ["B-2", "A-1", "B-2", "C-3"] })
@@ -91,10 +95,10 @@ describe("jcm_getIssues", () => {
         description: "alpha desc",
         comments: [],
       },
-      { key: "C-3", error: "not found, no access, or moved" },
+      { key: "C-3", error: "not found or no access" },
     ]);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
     const url = requestUrl();
     expect(url.pathname).toContain("/rest/api/3/search/jql");
     expect(url.searchParams.get("jql")).toBe("key in (B-2, A-1, C-3)");
@@ -183,5 +187,60 @@ describe("jcm_getIssues", () => {
 
     expect(res.map((e: any) => e.summary)).toEqual(["One", "Two"]);
     expect(new URL(String(fetchSpy.mock.calls[1][0])).searchParams.get("nextPageToken")).toBe("tok");
+  });
+
+  it("resolves a moved key via direct GET: requested key kept, movedTo set, no extra fetch for found keys", async () => {
+    jiraReturns([{ key: "A-1", fields: { summary: "One" } }]);
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ key: "NEW-1", fields: { summary: "Moved" } }),
+    });
+
+    const [a, moved] = JSON.parse(await handleGetIssues(client, { issueKeys: ["A-1", "OLD-1"] }));
+
+    expect(a).not.toHaveProperty("movedTo");
+    expect(moved).toMatchObject({ key: "OLD-1", movedTo: "NEW-1", summary: "Moved" });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const url = new URL(String(fetchSpy.mock.calls[1][0]));
+    expect(url.pathname).toBe("/rest/api/3/issue/OLD-1");
+    expect(url.searchParams.get("fields")).toBe("summary,issuetype,status,parent,description,comment");
+  });
+
+  it("makes no fallback GET when the search returns every key", async () => {
+    jiraReturns([{ key: "A-1", fields: { summary: "One" } }]);
+    await handleGetIssues(client, { issueKeys: ["A-1"] });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a non-404 fallback error per key without failing the batch", async () => {
+    jiraReturns([{ key: "A-1", fields: { summary: "One" } }]);
+    jiraFails(500);
+
+    const res = JSON.parse(await handleGetIssues(client, { issueKeys: ["A-1", "B-2"] }));
+
+    expect(res[0].summary).toBe("One");
+    expect(res[1].key).toBe("B-2");
+    expect(res[1].error).toMatch(/500/);
+    expect(res[1].error).not.toBe("not found or no access");
+  });
+
+  it("caps concurrent fallback GETs", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => ({ issues: [] }) });
+    fetchSpy.mockImplementation(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return { ok: false, status: 404, text: async () => "nope" };
+    });
+    const issueKeys = Array.from({ length: 20 }, (_, i) => `A-${i + 1}`);
+
+    const res = JSON.parse(await handleGetIssues(client, { issueKeys }));
+
+    expect(res).toHaveLength(20);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(5);
   });
 });
